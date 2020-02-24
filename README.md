@@ -1,1 +1,1 @@
-"# MHC Encoding" 
+# MHC Encoding
