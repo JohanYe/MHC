@@ -1,0 +1,72 @@
+#################################################################
+##             __  __ _    _  _____    _____                   ##
+##            |  \/  | |  | |/ ____|  |_   _|                  ##
+##            | \  / | |__| | |   ______| |                    ##
+##            | |\/| |  __  | |  |______| |                    ##
+##            | |  | | |  | | |____    _| |_                   ##
+##            |_|  |_|_|  |_|\_____|  |_____|                  ##
+##    ____                  _                          _       ##
+##   |  _ \                | |                        | |      ##
+##   | |_) | ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __   ##
+##   |  _ < / _ \ '_ \ / __| '_ \| '_ ` _ \ / _` | '__| |/ /   ##
+##   | |_) |  __/ | | | (__| | | | | | | | | (_| | |  |   <    ##
+##   |____/ \___|_| |_|\___|_| |_|_| |_| |_|\__,_|_|  |_|\_\   ##
+##                                                             ##
+#################################################################
+                         Last updated 09/10/2019 by Bruno Alvarez
+
+
+Hi, this is the default benchmark for the MHC-I peptide binding 
+prediction challenge.
+
+
+
+#################
+# TRAINING DATA #
+#################
+
+The training data for this benchmark is the same we used for the
+NNAlign_MA publication (https://doi.org/10.1074/mcp.TIR119.001658).
+
+Up to this day there are two main types of data for MHC-I:
+
+    1) Binding Affinity (BA) 
+       ¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+       This data has real-valued target values in the range [0,1].
+       Training partitions for this data type can be found in the 
+       "ba_data" folder.
+
+    2) Eluted Ligands (EL)
+       ¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+       This data has binary target values.
+       Training partitions for this data type can be found in the 
+       "el_data" folder.
+
+
+Depending on your model, you can use these types of data combined
+or separatedly to train.
+
+NOTE: Multi-Allelic (MA) data labels of the EL portion of the data
+were replaced with the top-scoring MHC-I prediction (this is, the 
+assigned MHC-I allele) of NNAlign_MA. To see the commands employed
+to do this, refer to the "scripts/MA_to_SA" folder, "do_work" script.
+
+
+
+#########################
+# INDEPENDENT TEST DATA #
+#########################
+
+This is, as well, the employed test data for the NNAlign_MA 
+paper. The full dataset consists of 558 individual sets, each one 
+corresponding to an epitope (associated with a target value of 1) 
+and all the 8 to 14 mer overlapping peptides of the epitope's source 
+protein (associated with a target value of 0). All these test
+sets were selected such that they do not overlap with the training 
+set, guaranteeing an independent testing.
+
+The test datasets can be found in the "test_sets" 
+folder. Information regarding these testsets can be found 
+in the "test_sets_info" file. The script used to generate 
+all these files can be found in the "scripts/epitopes" folder, as 
+"do_work".
