@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 
+
 # class MHCData(torch.utils.data.Dataset):
 #     def __init__(self, BA_EL, test, validation, data_path):
 #
@@ -18,14 +19,20 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
     Load file to tensor
     :param filepath: path to files
     :param Partition: Current partition
-    :return:
+    :return: X_tensor, y_tensor
     """
-    complete_path = filepath + 'c00' + str(Partition) + "_" + BA_EL.lower()
+    if type(Partition) is not list:
+        Partition = [Partition]
+
     colnames = ['Peptide', 'BindingAffinity', 'MHC']
-    X = pd.read_csv(complete_path, header=None, sep='\s+', names=colnames)
-    X['Peptide'] = X['Peptide'].astype(str)
-    X['MHC'] = X['MHC'].astype(str)
-    X['MHC'] = X['MHC'].map(mapping_dict)
+    X = pd.DataFrame(columns=colnames)
+
+    for i in Partition:
+        complete_path = filepath + 'c00' + str(i) + "_" + BA_EL.lower()
+        tmp = pd.read_csv(complete_path, header=None, sep='\s+', names=colnames)
+        tmp['Peptide'] = tmp['Peptide'].astype(str)
+        tmp['MHC'] = tmp['MHC'].astype(str)
+        tmp['MHC'] = tmp['MHC'].map(mapping_dict)
+        X = X.append(tmp)
+
     return X[['Peptide', 'MHC']], X.BindingAffinity
-
-
