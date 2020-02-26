@@ -27,8 +27,6 @@ for test_set in range(5):
         X_val, y_val = FileToTensor(data_path, validation_set, BA_EL, MHC_dict)
         X_test, y_test = FileToTensor(data_path, test_set, BA_EL, MHC_dict)
 
-        break
-    break
 
         print(test_set, validation_set)
 
@@ -37,3 +35,17 @@ import pandas as pd
 filepath = data_path
 Partition = test_set
 mapping_dict = MHC_dict
+import numpy as np
+AA = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y','empty']
+seq = 'YSEMYRERAGNFFVSNLYLWSMFYSMAEQNYRWY'
+one_hot_encode(seq).shape
+
+def one_hot_encode(seq):
+    o = list(set(AA) - set(seq))
+    s = pd.DataFrame(list(seq))
+    x = pd.DataFrame(np.zeros((len(seq),len(o)),dtype=int),columns=o)
+    a = s[0].str.get_dummies(sep=',')
+    a = a.join(x)
+    a = a.sort_index(axis=1)
+    e = a.values
+    return e
