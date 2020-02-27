@@ -2,8 +2,6 @@ import torch
 import pandas as pd
 import numpy as np
 
-
-
 one_hot = {
     'A': np.array((1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
     'R': np.array((0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
@@ -50,13 +48,15 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
     :param Partition: Current partition
     :return: X_tensor, y_tensor
     """
+
     if type(Partition) is not list:
         Partition = [Partition]
-    Peptide_len = 14
+    Peptide_len = 14 #  Is there a better way to do this?
     MHC_len = len(max(list(mapping_dict.keys()), key=len))
     colnames = ['Peptide', 'BindingAffinity', 'MHC']
     X = pd.DataFrame(columns=colnames)
 
+    # reading files
     for i in Partition:
         complete_path = filepath + 'c00' + str(i) + "_" + BA_EL.lower()
         tmp = pd.read_csv(complete_path, header=None, sep='\s+', names=colnames)
@@ -65,10 +65,11 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
         tmp['MHC'] = tmp['MHC'].map(mapping_dict)
         X = X.append(tmp,ignore_index=True)
 
-    y = X['BindingAffinity']
+    # modification of shape and conversion to np array
+    y = X['BindingAffinity'].values
     X = X.drop('BindingAffinity', axis=1)
     Peptide_mat = np.stack(X.Peptide.apply(one_hot_encoding, encoding_dict=one_hot, max_len=Peptide_len).values)
     MHC_mat = np.stack(X.MHC.apply(one_hot_encoding, encoding_dict=one_hot, max_len=MHC_len).values)
     X = np.concatenate((Peptide_mat, MHC_mat), axis=1)
 
-    return X, y
+    return torch.from_numpy(X), torch.from_numpy(y)
