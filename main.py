@@ -3,7 +3,8 @@
 # Spring 2020
 
 import os
-import pandas as pd
+from scipy.stats import pearsonr
+import torch
 from Utils import *
 import time
 
@@ -32,6 +33,7 @@ for test_set in range(5):
 
         elapsed_time = time.process_time() - t
         print(elapsed_time, test_set, validation_set)
+
         break
     break
 
