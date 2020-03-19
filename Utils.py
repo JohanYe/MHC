@@ -88,17 +88,20 @@ def one_hot_encoding(list, encoding_dict, max_len):
     matrix = []
     idx = 0
     for i in list:
-        matrix.append(encoding_dict[i])
+        # OBS: upper is only due to data already being preprocessed + there are leftover 'm's
+        try:
+            matrix.append(encoding_dict[i.upper()])
+        except:
+            print(list,i)
         idx += 1
     for i in range(int(max_len) - idx):
         matrix.append(encoding_dict['X'])
 
     return np.array(matrix)
 
-
 def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
     """
-    Load file to tensor
+    Load file to tensor, could probably have been done with torch.dataset, but files are so small, so figured not worth the trouble
     :param MHC_len: max len of MHC
     :param filepath: path to files
     :param Partition: Current partition
@@ -122,14 +125,93 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
         X = X.append(tmp,ignore_index=True)
 
     # modification of shape and conversion to np array
-    y = X['BindingAffinity'].values
+    y = np.expand_dims(X['BindingAffinity'].values, 1)
     X = X.drop('BindingAffinity', axis=1)
     Peptide_mat = np.stack(X.Peptide.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=Peptide_len).values)
     MHC_mat = np.stack(X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
-    X = np.concatenate((Peptide_mat, MHC_mat), axis=1)
+    print(Peptide_mat.shape, y.shape, MHC_mat.shape)
+    X = np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int)
 
-    return torch.from_numpy(X), torch.from_numpy(y)
+    return X, y
 
-nlf = pd.read_csv('https://raw.githubusercontent.com/dmnfarrell/epitopepredict/master/epitopepredict/mhcdata/NLF.csv',index_col=0)
+def TxtToArray(data_path, Partition, BA_EL, mapping_dict):
 
+    if type(Partition) is not list:
+        Partition = [Partition]
+    Peptide_len = 15  # Is there a better way to do this?
+    MHC_len = len(max(list(mapping_dict.keys()), key=len))
+    Peptides = []
+    MHC = []
+
+    for file in Partition:
+        filepath = data_path + 'c00' + str(file) + "_" + BA_EL.lower()
+
+        infile = open(filepath, 'r')
+        for line in infile:
+            line = line.strip().split()
+
+            # Peptide
+            sequence, idx = [], 0
+            for AA in line[0]:
+                sequence.append(onehot_Blosum50[AA.upper()])
+                idx += 1
+            for i in range(int(Peptide_len) - idx):
+                sequence.append(onehot_Blosum50['X'])
+            Peptides.append(np.array(sequence))
+
+            # MHC
+            sequence, idx = [], 0
+            for AA in mapping_dict[line[2]]:
+                sequence.append(onehot_Blosum50[AA.upper()])
+                idx += 1
+            for i in range(int(MHC_len) - idx):
+                sequence.append(onehot_Blosum50['X'])
+            MHC.append(np.array(sequence))
+
+    Peptides = torch.from_numpy(np.array(Peptides))
+    MHC = torch.from_numpy(np.array(MHC))
+    print('{} are loaded'.format(Partition))
+    return Peptides, MHC
+
+def TxtToTensor(data_path, Partition, BA_EL, mapping_dict):
+
+    if type(Partition) is not list:
+        Partition = [Partition]
+    Peptide_len = 15  # Is there a better way to do this?
+    MHC_len = len(max(list(mapping_dict.keys()), key=len))
+    Peptides = []
+    MHC = []
+
+    for file in Partition:
+        filepath = data_path + 'c00' + str(file) + "_" + BA_EL.lower()
+
+        infile = open(filepath, 'r')
+        for line in infile:
+            line = line.strip().split()
+
+            # Peptide
+            sequence, idx = [], 0
+            for AA in line[0]:
+                sequence.append(torch.from_numpy(onehot_Blosum50[AA.upper()]))
+                idx += 1
+            for i in range(int(Peptide_len) - idx):
+                sequence.append(torch.from_numpy(onehot_Blosum50['X']))
+            print(sequence)
+            Peptides.append(torch.Tensor(sequence))
+
+            # MHC
+            sequence, idx = [], 0
+            for AA in mapping_dict[line[2]]:
+                sequence.append(torch.from_numpy(onehot_Blosum50[AA.upper()]))
+                idx += 1
+            for i in range(int(MHC_len) - idx):
+                sequence.append(torch.from_numpy(onehot_Blosum50['X']))
+            MHC.append(torch.Tensor((sequence)))
+
+    X_train = torch.Tensor(Peptides.shape[0], 49, 40)
+    Peptides = torch.Tensor(Peptides)
+    MHC = torch.Tensor(MHC)
+    X_train = torch.cat((Peptides, MHC),dim=1,out=X_train)
+    print('{} are loaded'.format(Partition))
+    return X_train, _
 
