@@ -9,7 +9,7 @@ from Utils import *
 from model import *
 import time
 
-BA_EL = "EL"  # Expects BA or EL
+BA_EL = "BA"  # Expects BA or EL
 
 # Data stuff
 data_path = os.getcwd() + '/MHC_I/' + BA_EL.lower() + "_data/"
@@ -20,7 +20,7 @@ All_data = {0, 1, 2, 3, 4}
 
 #Hyperparams:
 n_epoch = 3
-batch_size = 500
+batch_size = 128
 lr = 1e-4
 
 
