@@ -105,7 +105,7 @@ def one_hot_encoding(list, encoding_dict, max_len):
 
     return np.array(matrix)
 
-def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
+def FileToTensor(filepath, Partition, BA_EL, mapping_dict, batch_size=128):
     """
     Load file to tensor, could probably have been done with torch.dataset, but files are so small, so figured not worth the trouble
     :param MHC_len: max len of MHC
@@ -135,10 +135,11 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict):
     X = X.drop('BindingAffinity', axis=1)
     Peptide_mat = np.stack(X.Peptide.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=Peptide_len).values)
     MHC_mat = np.stack(X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
-    print(Peptide_mat.shape, y.shape, MHC_mat.shape)
     X = np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int)
 
-    return X, y
+    dataloader = torch.utils.data.DataLoader((X, y), batch_size=batch_size, shuffle=True)
+
+    return dataloader
 
 def TxtToArray(data_path, Partition, BA_EL, mapping_dict):
 

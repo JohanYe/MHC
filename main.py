@@ -34,12 +34,17 @@ for test_set in range(5):
 
         # data loading: [N, Concat_length, Amino acids]
         train_set = list(All_data - set([test_set, validation_set]))
-        X_train, y_train = FileToTensor(data_path, train_set, BA_EL, MHC_dict)
-        X_val, y_val = FileToTensor(data_path, validation_set, BA_EL, MHC_dict)
-        X_test, y_test = FileToTensor(data_path, test_set, BA_EL, MHC_dict)
+        train_loader = FileToTensor(data_path, train_set, BA_EL, MHC_dict)
+        val_loader = FileToTensor(data_path, validation_set, BA_EL, MHC_dict)
+        test_loader = FileToTensor(data_path, test_set, BA_EL, MHC_dict)
 
         elapsed_time = time.process_time() - t
         print(elapsed_time, test_set, validation_set)
+
+        for batch in train_loader:
+            X, y = batch
+            X = X.permute(0,2,1).to(device)
+            net(batch)
 
 
         break
