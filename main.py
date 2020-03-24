@@ -19,10 +19,11 @@ MHC_dict = MHC.set_index(0).to_dict()[1]
 All_data = {0, 1, 2, 3, 4}
 
 #Hyperparams:
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 n_epoch = 3
 batch_size = 128
 lr = 1e-4
-
+net = DeepLigand().to(device)
 
 
 for test_set in range(5):
@@ -39,6 +40,7 @@ for test_set in range(5):
 
         elapsed_time = time.process_time() - t
         print(elapsed_time, test_set, validation_set)
+
 
         break
     break
