@@ -137,7 +137,8 @@ def FileToTensor(filepath, Partition, BA_EL, mapping_dict, batch_size=128):
     MHC_mat = np.stack(X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
     X = np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int)
 
-    dataloader = torch.utils.data.DataLoader((X, y), batch_size=batch_size, shuffle=True)
+    combined = torch.utils.data.TensorDataset(torch.from_numpy(X),torch.from_numpy(y))
+    dataloader = torch.utils.data.DataLoader(combined, batch_size=batch_size, shuffle=True)
 
     return dataloader
 

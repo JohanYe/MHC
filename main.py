@@ -18,13 +18,12 @@ MHC_len = MHC[1].map(len).max()
 MHC_dict = MHC.set_index(0).to_dict()[1]
 All_data = {0, 1, 2, 3, 4}
 
-#Hyperparams:
+# Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 n_epoch = 3
 batch_size = 128
 lr = 1e-4
 net = DeepLigand().to(device)
-
 
 for test_set in range(5):
     for validation_set in range(5):
@@ -43,10 +42,9 @@ for test_set in range(5):
 
         for batch in train_loader:
             X, y = batch
-            X = X.permute(0,2,1).to(device)
-            net(batch)
-
+            X = X.permute(0, 2, 1).to(device).float()
+            Resnet, lstm = net(X)
+            break
 
         break
     break
-

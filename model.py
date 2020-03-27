@@ -5,7 +5,7 @@ from Utils import Flatten
 
 
 class BidirectionalLSTM(nn.Module):
-    def __init__(self, input_shape, hidden_shape=256, Dropout=0.2, n_layers=2):
+    def __init__(self, input_shape, hidden_shape=256, Dropout=0.1, n_layers=2):
         super(BidirectionalLSTM, self).__init__()
 
         self.dropout = Dropout
@@ -16,7 +16,6 @@ class BidirectionalLSTM(nn.Module):
 
     def forward(self, x):
         out = self.layers(x)
-        out = nn.Softmax(out, -1)
         return out
 
 
@@ -43,21 +42,23 @@ class ResidualBlock(nn.Module):
 
 
 class DeepLigand(nn.Module):
-    def __init__(self, filters=256, n_layers=5, seq_len=40):
+    def __init__(self, filters=256, n_layers=5, seq_len=49):
         super(DeepLigand, self).__init__()
 
         # Convolutional network
-        stride = [1] + [2] * n_layers
+        stride = 1
+        self.seq_len = seq_len
         self.stride = stride
         self.filters = filters
         self.n_layers = n_layers
         self.init_convolution = nn.Sequential(
-            nn.Conv1d(1, filters, kernel_size=3, stride=1, padding=1),  # Note bias is false in paper code
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  # Note bias is false in paper code
             nn.BatchNorm1d(filters),
             nn.ReLU()
         )
 
-        layers = [ResidualBlock(filters, filters, stride=stride[i]) for i in range(n_layers)]
+        layers = [ResidualBlock(filters, filters, stride=stride) for _ in range(n_layers)]
+        # layers = [ResidualBlock(filters, filters, stride=stride[i]) for i in range(n_layers)]
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -69,17 +70,18 @@ class DeepLigand(nn.Module):
         self.layers = nn.Sequential(*layers)
 
         # LSTM
-        nn.ELMo = BidirectionalLSTM(seq_len)
+        self.ELMo = BidirectionalLSTM(seq_len)
 
     def forward(self, x):
         out1 = self.init_convolution(x)
         out1 = self.layers(out1)
 
+        x_lstm = x.view(x.shape[0], -1, self.seq_len)
         out2 = self.ELMo(x)
 
-        print(out1.shape, out2.shape)
+        #print(out1.shape, len(out2), out2[0].shape, out2[1].shape)
 
-        return
+        return out1, out2
 
 
 
