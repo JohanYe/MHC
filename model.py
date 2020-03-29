@@ -5,7 +5,7 @@ from Utils import Flatten
 
 
 class BidirectionalLSTM(nn.Module):
-    def __init__(self, input_shape, hidden_shape=256, Dropout=0.1, n_layers=2):
+    def __init__(self, input_shape, hidden_shape=256, Dropout=0, n_layers=2):
         super(BidirectionalLSTM, self).__init__()
 
         self.dropout = Dropout
@@ -42,11 +42,13 @@ class ResidualBlock(nn.Module):
 
 
 class DeepLigand(nn.Module):
-    def __init__(self, filters=256, n_layers=5, seq_len=49):
+    def __init__(self, filters=256, n_layers=5, seq_len=49, lstm_hidden=256):
         super(DeepLigand, self).__init__()
 
         # Convolutional network
         stride = 1
+        self.lstm_hidden = lstm_hidden
+        self.lstm_linear = 32
         self.seq_len = seq_len
         self.stride = stride
         self.filters = filters
@@ -70,14 +72,19 @@ class DeepLigand(nn.Module):
         self.layers = nn.Sequential(*layers)
 
         # LSTM
-        self.ELMo = BidirectionalLSTM(seq_len)
+        self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=2)
+        self.ELMo_Linear = nn.Sequential(
+            nn.Linear(2*lstm_hidden, 32),
+            nn.BatchNorm1d(32)
+        )
 
     def forward(self, x):
         out1 = self.init_convolution(x)
         out1 = self.layers(out1)
 
         x_lstm = x.view(x.shape[0], -1, self.seq_len)
-        out2 = self.ELMo(x)
+        out2 = self.ELMo(x)[0]
+        print(out2.shape)
 
         #print(out1.shape, len(out2), out2[0].shape, out2[1].shape)
 

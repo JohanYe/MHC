@@ -41,6 +41,7 @@ for test_set in range(5):
         print(elapsed_time, test_set, validation_set)
 
         for batch in train_loader:
+            net.train()
             X, y = batch
             X = X.permute(0, 2, 1).to(device).float()
             Resnet, lstm = net(X)
