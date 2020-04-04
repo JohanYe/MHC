@@ -8,6 +8,7 @@ import torch
 from Utils import *
 from model import *
 import time
+import torch.optim as optim
 
 BA_EL = "BA"  # Expects BA or EL
 
@@ -20,10 +21,13 @@ All_data = {0, 1, 2, 3, 4}
 
 # Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-n_epoch = 3
+n_epoch = 50
+train_log = []
 batch_size = 128
 lr = 1e-4
 net = DeepLigand().to(device)
+optimizer = optim.Adam(net.parameters(), lr=lr)
+criterion = nn.MSELoss()
 
 for test_set in range(5):
     for validation_set in range(5):
@@ -40,13 +44,20 @@ for test_set in range(5):
         elapsed_time = time.process_time() - t
         print(elapsed_time, test_set, validation_set)
 
-        for batch in train_loader:
-            net.train()
-            X, y = batch
-            X = X.permute(0, 2, 1).to(device).float()
-            output = net(X)
+        for epoch in range(n_epoch):
+            for batch in train_loader:
+                net.train()
+                X, y = batch
+                X = X.permute(0, 2, 1).to(device).float()
+                pred_BA = net(X)
+                loss = criterion(pred_BA, y.to(device).float())
 
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                train_log.append(loss.item())
 
-
+            print('Epoch: {}, Train loss: {}'.format(
+                epoch, np.mean(train_log)))
         break
     break

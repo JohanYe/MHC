@@ -100,7 +100,6 @@ class DeepLigand(nn.Module):
         self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=2)
         self.ELMo_Linear = nn.Sequential(
             Flatten(),
-            PrintLayerShape(),
             nn.Linear(2*lstm_hidden*40, lstm_linear),
             nn.BatchNorm1d(lstm_linear),
             nn.ReLU(),
