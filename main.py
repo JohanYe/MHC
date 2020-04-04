@@ -44,8 +44,9 @@ for test_set in range(5):
             net.train()
             X, y = batch
             X = X.permute(0, 2, 1).to(device).float()
-            Resnet, lstm = net(X)
-            break
+            output = net(X)
+
+
 
         break
     break

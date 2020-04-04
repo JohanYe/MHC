@@ -5,8 +5,16 @@ import torch.nn as nn
 
 class Flatten(nn.Module):
     def forward(self, input):
-        return input.view(input.size(0), -1)
+        return input.reshape(input.shape[0], -1)
 
+
+class PrintLayerShape(nn.Module):
+    def __init__(self):
+        super(PrintLayerShape, self).__init__()
+
+    def forward(self, x):
+        print(x.shape)
+        return x
 
 one_hot = {
     'A': np.array((1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
