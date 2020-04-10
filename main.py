@@ -46,9 +46,9 @@ for test_set in range(5):
         # data loading: [N, Concat_length, Amino acids]
         train_set = list(All_data - set([test_set, validation_set]))
         train_loader = torch.utils.data.DataLoader(
-            MHC_dataset(data_path, train_set, BA_EL, MHC_dict), batch_size=batch_size, shuffle=True)
+            MHC_dataset(data_path, train_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(
-            MHC_dataset(data_path, validation_set, BA_EL, MHC_dict), batch_size=batch_size, shuffle=True)
+            MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
         elapsed_time = time.process_time() - t
         print(elapsed_time, test_set, validation_set)
@@ -72,23 +72,7 @@ for test_set in range(5):
             test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
             for i in range(batches_per_epoch):
                 batch_df = test_df.iloc[batch_size*i:batch_size*(i+1)]  # Batching
-
-                #Fun stuff converting to tensor
-                y = torch.from_numpy(np.expand_dims(batch_df['BindingAffinity'].values, 1))
-                X = batch_df.drop('BindingAffinity', axis=1)
-                Peptide_mat = np.stack(X.Peptide.apply(
-                    one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=Peptide_len).values)
-                MHC_mat = np.stack(
-                    X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
-                X = torch.from_numpy(np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int))
-
-
-
-
-
-
-
-
+                X, y = df_ToTensor(test_df, MHC_len, Peptide_len)
 
                 net.eval()
         break

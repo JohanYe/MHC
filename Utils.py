@@ -118,37 +118,15 @@ class MHC_dataset(torch.utils.data.Dataset):
     test set input currently does nothing. May need to change depending on memory usage.
     """
 
-    def __init__(self, filepath, Partition, BA_EL, mapping_dict, Peptide_len=15):
+    def __init__(self, filepath, Partition, BA_EL, mapping_dict, MHC_len, Peptide_len=15):
 
         self.filepath = filepath
         self.partition = Partition
         self.BA_EL = BA_EL
         self.mapping_dict = mapping_dict
 
-        if type(Partition) is not list:
-            Partition = [Partition]
-        MHC_len = len(max(list(mapping_dict.keys()), key=len))
-        colnames = ['Peptide', 'BindingAffinity', 'MHC']
-        X = pd.DataFrame(columns=colnames)
-
-        # reading files
-        for i in Partition:
-            complete_path = filepath + 'c00' + str(i) + "_" + BA_EL.lower()
-            tmp = pd.read_csv(complete_path, header=None, sep='\s+', names=colnames)
-            tmp['Peptide'] = tmp['Peptide'].astype(str)
-            tmp['MHC'] = tmp['MHC'].astype(str)
-            tmp['MHC'] = tmp['MHC'].map(mapping_dict)
-            X = X.append(tmp, ignore_index=True)
-
-        # modification of shape and conversion to np array
-        self.y = torch.from_numpy(np.expand_dims(X['BindingAffinity'].values, 1))
-        # self.X_original = X
-        X = X.drop('BindingAffinity', axis=1)
-        Peptide_mat = np.stack(
-            X.Peptide.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=Peptide_len).values)
-        MHC_mat = np.stack(
-            X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
-        self.X = torch.from_numpy(np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int))
+        df = MHC_df(filepath, Partition, BA_EL, mapping_dict, Peptide_len=15)
+        self.X, self.y = df_ToTensor(df, MHC_len, Peptide_len)
 
     def __len__(self):
         return self.X.shape[0]
@@ -159,6 +137,7 @@ class MHC_dataset(torch.utils.data.Dataset):
         return batch, label
 
 def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
+    """ reads MHC files and creates pandas df """
 
     if type(Partition) is not list:
         Partition = [Partition]
@@ -177,7 +156,19 @@ def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
 
     return X
 
+def df_ToTensor(df, MHC_len, Peptide_len):
+    """ Turns input pandas df into tensors """
 
+    # modification of shape and conversion to np array
+    y = torch.from_numpy(np.expand_dims(df['BindingAffinity'].values, 1))
+    X = df.drop('BindingAffinity', axis=1)
+    Peptide_mat = np.stack(
+        X.Peptide.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=Peptide_len).values)
+    MHC_mat = np.stack(
+        X.MHC.apply(one_hot_encoding, encoding_dict=onehot_Blosum50, max_len=MHC_len).values)
+    X = torch.from_numpy(np.concatenate((Peptide_mat, MHC_mat), axis=1).astype(int))
+
+    return X, y
 
 
 def TxtToArray(data_path, Partition, BA_EL, mapping_dict):
