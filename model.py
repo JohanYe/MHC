@@ -66,7 +66,7 @@ class ResidualBlock(nn.Module):
 
 
 class DeepLigand(nn.Module):
-    def __init__(self, filters=256, n_layers=5, seq_len=49, lstm_hidden=64, lstm_linear=256):
+    def __init__(self, filters=128, n_layers=5, seq_len=49, lstm_hidden=64, lstm_linear=256):
         super(DeepLigand, self).__init__()
 
         # Convolutional network
