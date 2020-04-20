@@ -23,14 +23,17 @@ All_data = {0, 1, 2, 3, 4}
 # Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
-n_epoch = 10
+n_epoch = 25
 batch_size = 128
-lr = 1e-4
-net = DeepLigand().to(device)
-optimizer = optim.Adam(net.parameters(), lr=lr)
+lr = 1e-5
 criterion = nn.MSELoss()
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
-k=0
+k = 0
+best_nll = np.inf
+save_dir = './checkpoints/'
+
+outfile = open('model_output.txt', 'w')
+outfile.write('split\tMHC\tPeptide\ty\ty_pred\n')
 
 for test_set in range(5):
     test_loader = torch.utils.data.DataLoader(
@@ -44,7 +47,6 @@ for test_set in range(5):
         k += 1
         best_test_MSE = np.inf
 
-
         # data loading: [N, Concat_length, Amino acids]
         train_set = list(All_data - set([test_set, validation_set]))
         train_loader = torch.utils.data.DataLoader(
@@ -52,10 +54,11 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
-        elapsed_time = time.process_time() - t
-        print(elapsed_time, test_set, validation_set)
+        net = DeepLigand(block_type='cabd').to(device)
+        optimizer = optim.Adam(net.parameters(), lr=lr)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3)
 
-        for epoch in range(n_epoch):
+        for epoch in range(1, n_epoch + 1):
             train_batch_loss = []
             for X, y in tqdm(train_loader):
                 net.train()
@@ -77,37 +80,22 @@ for test_set in range(5):
                     loss = criterion(pred_BA, y.to(device).float())
                     val_batch_loss.append(loss.item())
 
-            for X, y in tqdm(test_loader):
-                X = X.permute(0, 2, 1).float()
-                with torch.no_grad():
-                    pred_BA = net(X.to(device))
-                    loss = criterion(pred_BA, y.to(device).float())
-                    test_batch_loss.append(loss.item())
-
+            scheduler.step(np.mean(val_batch_loss))
             train_epoch_loss.append(np.mean(train_batch_loss))
             val_epoch_loss.append(np.mean(val_batch_loss))
-            test_epoch_loss.append(np.mean(val_batch_loss))
 
-            print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}, Test Loss: {}'.format(
-                k, epoch, train_epoch_loss[-1], val_epoch_loss[-1], test_epoch_loss[-1]
-            ))
-        break
+            print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
+                k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
+
+            if np.mean(val_batch_loss) < best_nll:
+                best_nll = np.mean(val_batch_loss)
+                save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
+
+        performance_testing_print(
+            data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion, k, outfile)
+
     break
+outfile.close()
 
-    # test_df = MHC_df(data_path, test_set, BA_EL, MHC_dict)
-    #     batches_per_epoch = int(np.ceil(test_df.shape[0] / batch_size))
-    #
-    # # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
-    # # Test loop is funny due to having to save MHC Allele
-    # test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
-    # for i in tqdm(range(batches_per_epoch)):
-    #     if i == batches_per_epoch:  # Batching
-    #         batch_df = test_df.iloc[batch_size * i:]
-    #     else:
-    #         batch_df = test_df.iloc[batch_size * i:batch_size * (i + 1)]
-    #     X, y = df_ToTensor(test_df, MHC_len, Peptide_len)
-    #     X = X.permute(0, 2, 1).float()
-    #     with torch.no_grad():
-    #         pred_BA = net(X.to(device))
-    #         loss = criterion(pred_BA, y.to(device).float())
-    #         val_batch_loss.append(loss.item())
+# for Allele in df_MHC['MHC'].unique():
+#     tmp = df_MHC[Allele]

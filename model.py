@@ -66,7 +66,7 @@ class ResidualBlock(nn.Module):
 
 
 class DeepLigand(nn.Module):
-    def __init__(self, filters=128, n_layers=5, seq_len=49, lstm_hidden=64, lstm_linear=256):
+    def __init__(self, filters=256, n_layers=5, seq_len=49, lstm_hidden=128, lstm_linear=256, block_type=None):
         super(DeepLigand, self).__init__()
 
         # Convolutional network
@@ -77,6 +77,7 @@ class DeepLigand(nn.Module):
         self.stride = stride
         self.filters = filters
         self.n_layers = n_layers
+        self.block_type = block_type
         self.ResidualOutDim = round((49 / (2 ** n_layers)))  # No idea why this is round and not int / floor as usuaual
         self.final_linear_dim = int(self.ResidualOutDim*filters + lstm_linear)
         self.init_convolution = nn.Sequential(
@@ -85,7 +86,11 @@ class DeepLigand(nn.Module):
             nn.ReLU()
         )
 
-        layers = [ResidualBlock(filters, filters, block_type='cbad', dropout=0.1) for _ in range(n_layers)]
+        layers = [ResidualBlock(filters,
+                                filters,
+                                block_type=block_type,
+                                dropout=0.1,
+                                nonlin=nn.LeakyReLU()) for _ in range(n_layers)]
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -97,7 +102,7 @@ class DeepLigand(nn.Module):
         self.layers = nn.Sequential(*layers)
 
         # LSTM
-        self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=2)
+        self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=3)
         self.ELMo_Linear = nn.Sequential(
             Flatten(),
             nn.Linear(2*lstm_hidden*40, lstm_linear),
@@ -123,7 +128,8 @@ class DeepLigand(nn.Module):
 
         # Network together
         out = torch.cat((out1, out2), dim=1)
-        out = torch.sigmoid(self.final_linear(out))
+        out = self.final_linear(out)
+        # out = torch.sigmoid(out)
 
         return out
 

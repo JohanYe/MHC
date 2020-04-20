@@ -2,6 +2,8 @@ import torch
 import pandas as pd
 import numpy as np
 import torch.nn as nn
+import os
+from tqdm import tqdm
 
 class Flatten(nn.Module):
     def forward(self, input):
@@ -251,4 +253,53 @@ def TxtToTensor(data_path, Partition, BA_EL, mapping_dict):
     X_train = torch.cat((Peptides, MHC),dim=1,out=X_train)
     print('{} are loaded'.format(Partition))
     return X_train, _
+
+def save_checkpoint(state, save_dir, ckpt_name='best.pth.tar'):
+    file_path = os.path.join(save_dir, ckpt_name)
+    if not os.path.exists(save_dir):
+        print("Save directory dosen't exist! Makind directory {}".format(save_dir))
+        os.mkdir(save_dir)
+
+    torch.save(state, file_path)
+
+def load_checkpoint(checkpoint, model):
+    if not os.path.exists(checkpoint):
+        raise Exception("File {} dosen't exists!".format(checkpoint))
+    checkpoint = torch.load(checkpoint)
+    saved_dict = checkpoint['state_dict']
+    new_dict = model.state_dict()
+    new_dict.update(saved_dict)
+    model.load_state_dict(new_dict)
+
+def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion,
+                              k, outfile):
+
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    test_df = MHC_df(data_path, test_set, BA_EL, MHC_dict)
+    batches_per_epoch = int(np.ceil(test_df.shape[0] / batch_size))
+
+    # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
+    # Test loop is funny due to having to save MHC Allele
+    test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
+    MHC_dict_flipped = {value: key for key, value in MHC_dict.items()}
+    MHC_names = test_df.copy()
+    MHC_names['MHC'] = MHC_names.MHC.map(MHC_dict_flipped)
+
+    for i in tqdm(range(batches_per_epoch)):
+        if i == batches_per_epoch:  # Batching
+            batch_df = test_df.iloc[batch_size * i:]
+        else:
+            batch_df = test_df.iloc[batch_size * i:batch_size * (i + 1)]
+        X, y = df_ToTensor(batch_df, MHC_len, Peptide_len)
+        X = X.permute(0, 2, 1).float()
+        with torch.no_grad():
+            pred_BA = net(X.to(device))
+            loss = criterion(pred_BA, y.to(device).float())
+
+        # For each value in batch print performance to outfile
+        for j in range(batch_df.shape[0]):
+            MHC = MHC_names.iloc[(batch_size * i) + j].MHC
+            Peptide = MHC_names.iloc[(batch_size * i) + j].Peptide
+            print(k, MHC, Peptide, y[j].item(), pred_BA[j].item(), sep='\t', file=outfile)
 
