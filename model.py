@@ -80,12 +80,13 @@ class DeepLigand(nn.Module):
         self.block_type = block_type
         self.ResidualOutDim = round((49 / (2 ** n_layers)))  # No idea why this is round and not int / floor as usuaual
         self.final_linear_dim = int(self.ResidualOutDim*filters + lstm_linear)
-        self.init_convolution = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  # Note bias is false in paper code
-            nn.BatchNorm1d(filters),
-            nn.ReLU()
-        )
 
+        self.Residual_initial_MHC = nn.Sequential(
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
+        )  # Note bias is false in paper code
+        self.Residual_initial_Peptide = nn.Sequential(
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
+        )
         layers = [ResidualBlock(filters,
                                 filters,
                                 block_type=block_type,
@@ -98,7 +99,6 @@ class DeepLigand(nn.Module):
             elif isinstance(m, nn.BatchNorm1d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-
         self.layers = nn.Sequential(*layers)
 
         # LSTM
@@ -117,11 +117,19 @@ class DeepLigand(nn.Module):
             nn.Linear(128, 1),
         )
 
+    def Residual_init(self, x):
+        x_MHC, x_Peptide = torch.split(x, [34, 15], dim=2)
+        out1 = self.Residual_initial_MHC(x_MHC)
+        out2 = self.Residual_initial_Peptide(x_Peptide)
+        out = torch.cat((out1, out2), dim=2)
+        return out
 
     def forward(self, x):
-        out1 = self.init_convolution(x)
+        # Resnet
+        out1 = self.Residual_init(x)
         out1 = self.layers(out1).view(x.shape[0],-1)
 
+        # LSTM
         x_lstm = x.view(x.shape[0], -1, self.seq_len)
         out2 = self.ELMo(x)[0]
         out2 = self.ELMo_Linear(out2)
