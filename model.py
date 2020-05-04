@@ -65,8 +65,59 @@ class ResidualBlock(nn.Module):
         return x
 
 
+class ResidualNetwork(nn.Module):
+    def __init__(self, filters=256, n_layers=5, seq_len=49, n_Linear=256, block_type=None):
+        super(ResidualNetwork, self).__init__()
+        self.n_layers = n_layers
+        self.block_type = block_type
+        self.seq_len = seq_len
+        self.n_Linear = n_Linear
+        self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 4)  # i dk why this is round and not int/floor as usual
+        self.final_linear_dim = int(self.ResidualOutDim*filters)
+
+        self.Residual_initial_MHC = nn.Sequential(
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
+        )  # Note bias is false in paper code
+        self.Residual_initial_Peptide = nn.Sequential(
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU())
+        layers = [ResidualBlock(filters,
+                                filters,
+                                block_type=block_type,
+                                dropout=0.1,
+                                nonlin=nn.LeakyReLU()) for _ in range(n_layers-1)]
+        layers.append(ResidualBlock(filters, filters//2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        self.layers = nn.Sequential(*layers)
+        self.fc = nn.Linear(int(filters//2 * self.ResidualOutDim), n_Linear)
+        self.mu = nn.Linear(n_Linear, 1)
+        self.std = nn.Linear(n_Linear, 1)
+
+    def Residual_init(self, x):
+        x_MHC, x_Peptide = torch.split(x, [34, 15], dim=2)
+        out1 = self.Residual_initial_MHC(x_MHC)
+        out2 = self.Residual_initial_Peptide(x_Peptide)
+        out = torch.cat((out1, out2), dim=2)
+        return out
+
+    def forward(self, x):
+        # Resnet
+        out = self.Residual_init(x)
+        out = self.layers(out).view(x.shape[0], -1)
+        out = self.fc(out)
+        mu = self.mu(out)
+        std = nn.Softplus()(self.std(out))  # Double parenthesis since it's a class
+
+        return mu, std
+
+
 class DeepLigand(nn.Module):
-    def __init__(self, filters=256, n_layers=5, seq_len=49, lstm_hidden=128, lstm_linear=256, block_type=None):
+    def __init__(self, filters=256, n_layers=5, seq_len=49, block_type=None, lstm_hidden=128, lstm_linear=256):
         super(DeepLigand, self).__init__()
 
         # Convolutional network
@@ -78,28 +129,7 @@ class DeepLigand(nn.Module):
         self.filters = filters
         self.n_layers = n_layers
         self.block_type = block_type
-        self.ResidualOutDim = round((49 / (2 ** n_layers)))  # No idea why this is round and not int / floor as usuaual
-        self.final_linear_dim = int(self.ResidualOutDim*filters + lstm_linear)
 
-        self.Residual_initial_MHC = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
-        )  # Note bias is false in paper code
-        self.Residual_initial_Peptide = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
-        )
-        layers = [ResidualBlock(filters,
-                                filters,
-                                block_type=block_type,
-                                dropout=0.1,
-                                nonlin=nn.LeakyReLU()) for _ in range(n_layers)]
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-        self.layers = nn.Sequential(*layers)
 
         # LSTM
         self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=3)
@@ -117,17 +147,9 @@ class DeepLigand(nn.Module):
             nn.Linear(128, 1),
         )
 
-    def Residual_init(self, x):
-        x_MHC, x_Peptide = torch.split(x, [34, 15], dim=2)
-        out1 = self.Residual_initial_MHC(x_MHC)
-        out2 = self.Residual_initial_Peptide(x_Peptide)
-        out = torch.cat((out1, out2), dim=2)
-        return out
+
 
     def forward(self, x):
-        # Resnet
-        out1 = self.Residual_init(x)
-        out1 = self.layers(out1).view(x.shape[0],-1)
 
         # LSTM
         x_lstm = x.view(x.shape[0], -1, self.seq_len)
@@ -135,11 +157,11 @@ class DeepLigand(nn.Module):
         out2 = self.ELMo_Linear(out2)
 
         # Network together
-        out = torch.cat((out1, out2), dim=1)
-        out = self.final_linear(out)
+        #out = torch.cat((out1, out2), dim=1)
+        #out = self.final_linear(out)
         # out = torch.sigmoid(out)
 
-        return out
+        return out2
 
 
 
