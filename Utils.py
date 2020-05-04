@@ -152,8 +152,8 @@ def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
         complete_path = filepath + 'c00' + str(i) + "_" + BA_EL.lower()
         tmp = pd.read_csv(complete_path, header=None, sep='\s+', names=colnames)
         tmp['Peptide'] = tmp['Peptide'].astype(str)
-        tmp['MHC'] = tmp['MHC'].astype(str)
-        tmp['MHC'] = tmp['MHC'].map(mapping_dict)
+        tmp['MHC_names'] = tmp['MHC'].astype(str)
+        tmp['MHC'] = tmp['MHC_names'].map(mapping_dict)
         X = X.append(tmp, ignore_index=True)
 
     return X
@@ -273,18 +273,12 @@ def load_checkpoint(checkpoint, model):
 
 def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion,
                               k, outfile):
-
-
+    # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
+    # Test loop is funny due to having to save MHC Allele
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     test_df = MHC_df(data_path, test_set, BA_EL, MHC_dict)
     batches_per_epoch = int(np.ceil(test_df.shape[0] / batch_size))
-
-    # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
-    # Test loop is funny due to having to save MHC Allele
     test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
-    MHC_dict_flipped = {value: key for key, value in MHC_dict.items()}
-    MHC_names = test_df.copy()
-    MHC_names['MHC'] = MHC_names.MHC.map(MHC_dict_flipped)
 
     for i in tqdm(range(batches_per_epoch)):
         if i == batches_per_epoch:  # Batching
@@ -294,12 +288,35 @@ def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, 
         X, y = df_ToTensor(batch_df, MHC_len, Peptide_len)
         X = X.permute(0, 2, 1).float()
         with torch.no_grad():
-            pred_BA = net(X.to(device))
-            loss = criterion(pred_BA, y.to(device).float())
-
+            mu, std = net(X.to(device))
         # For each value in batch print performance to outfile
         for j in range(batch_df.shape[0]):
-            MHC = MHC_names.iloc[(batch_size * i) + j].MHC
-            Peptide = MHC_names.iloc[(batch_size * i) + j].Peptide
-            print(k, MHC, Peptide, y[j].item(), pred_BA[j].item(), sep='\t', file=outfile)
+            MHC = test_df.iloc[(batch_size * i) + j].MHC_names
+            Peptide = test_df.iloc[(batch_size * i) + j].Peptide
+            print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)
 
+def performance_testing_print_Resnet(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion,
+                              k, outfile):
+
+
+    # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
+    # Test loop is funny due to having to save MHC Allele
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    test_df = MHC_df(data_path, test_set, BA_EL, MHC_dict)
+    batches_per_epoch = int(np.ceil(test_df.shape[0] / batch_size))
+    test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
+
+    for i in tqdm(range(batches_per_epoch)):
+        if i == batches_per_epoch:  # Batching
+            batch_df = test_df.iloc[batch_size * i:]
+        else:
+            batch_df = test_df.iloc[batch_size * i:batch_size * (i + 1)]
+        X, y = df_ToTensor(batch_df, MHC_len, Peptide_len)
+        X = X.permute(0, 2, 1).float()
+        with torch.no_grad():
+            mu, std = net(X.to(device))
+        # For each value in batch print performance to outfile
+        for j in range(batch_df.shape[0]):
+            MHC = test_df.iloc[(batch_size * i) + j].MHC_names
+            Peptide = test_df.iloc[(batch_size * i) + j].Peptide
+            print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)

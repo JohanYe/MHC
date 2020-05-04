@@ -72,7 +72,7 @@ class ResidualNetwork(nn.Module):
         self.block_type = block_type
         self.seq_len = seq_len
         self.n_Linear = n_Linear
-        self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 4)  # i dk why this is round and not int/floor as usual
+        self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 2)  # i dk why this is round and not int/floor as usual
         self.final_linear_dim = int(self.ResidualOutDim*filters)
 
         self.Residual_initial_MHC = nn.Sequential(
@@ -110,7 +110,7 @@ class ResidualNetwork(nn.Module):
         out = self.Residual_init(x)
         out = self.layers(out).view(x.shape[0], -1)
         out = self.fc(out)
-        mu = self.mu(out)
+        mu = nn.Softplus()(self.mu(out))
         std = nn.Softplus()(self.std(out))  # Double parenthesis since it's a class
 
         return mu, std

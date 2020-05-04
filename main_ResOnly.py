@@ -23,10 +23,9 @@ All_data = {0, 1, 2, 3, 4}
 # Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
-n_epoch = 2
+n_epoch = 100
 batch_size = 128
-lr = 1e-5
-criterion = nn.MSELoss()
+lr = 1e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 best_nll = np.inf
@@ -34,6 +33,13 @@ save_dir = './checkpoints/'
 
 outfile = open('model_output.txt', 'w')
 outfile.write('split\tMHC\tPeptide\ty\ty_pred\n')
+
+def criterion(y, mu, std=None, normal_dist=True):
+    if normal_dist:
+        loss = -torch.distributions.Normal(loc=mu, scale=std).log_prob(y)
+    else:
+        loss = nn.MSELoss()(mu, y)
+    return loss.mean()
 
 for test_set in range(5):
     test_loader = torch.utils.data.DataLoader(
@@ -63,12 +69,13 @@ for test_set in range(5):
             for X, y in tqdm(train_loader):
                 net.train()
                 X = X.permute(0, 2, 1).float()
-                pred_BA = net(X.to(device))
-                loss = criterion(pred_BA, y.to(device).float())
+                mu, std = net(X.to(device))
+                loss = criterion(y.to(device).float(), mu, std)#, normal_dist=False)
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
                 train_batch_loss.append(loss.item())
 
             val_batch_loss, test_batch_loss = [], []
@@ -76,8 +83,9 @@ for test_set in range(5):
             for X, y in tqdm(val_loader):
                 X = X.permute(0, 2, 1).float()
                 with torch.no_grad():
-                    pred_BA = net(X.to(device))
-                    loss = criterion(pred_BA, y.to(device).float())
+                    mu, std = net(X.to(device))
+                    loss = criterion(y.to(device).float(), mu, std, normal_dist=False)
+                    # loss = nn.MSELoss()(mu, y.to(device))
                     val_batch_loss.append(loss.item())
 
             scheduler.step(np.mean(val_batch_loss))
@@ -88,14 +96,16 @@ for test_set in range(5):
                 k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
 
             if np.mean(val_batch_loss) < best_nll:
+                best_epoch = epoch
                 best_nll = np.mean(val_batch_loss)
                 save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
 
+            if epoch - best_epoch > 10:  # Early stopping
+                break
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion, k, outfile)
+
 
     break
 outfile.close()
 
-# for Allele in df_MHC['MHC'].unique():
-#     tmp = df_MHC[Allele]
