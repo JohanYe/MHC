@@ -73,7 +73,6 @@ class ResidualNetwork(nn.Module):
         self.seq_len = seq_len
         self.n_Linear = n_Linear
         self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 2)  # i dk why this is round and not int/floor as usual
-        self.final_linear_dim = int(self.ResidualOutDim*filters)
 
         self.Residual_initial_MHC = nn.Sequential(
             nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
@@ -99,7 +98,7 @@ class ResidualNetwork(nn.Module):
         self.std = nn.Linear(n_Linear, 1)
 
     def Residual_init(self, x):
-        x_MHC, x_Peptide = torch.split(x, [34, 15], dim=2)
+        x_Peptide, x_MHC = torch.split(x, [15, 34], dim=2)
         out1 = self.Residual_initial_MHC(x_MHC)
         out2 = self.Residual_initial_Peptide(x_Peptide)
         out = torch.cat((out1, out2), dim=2)
@@ -114,6 +113,77 @@ class ResidualNetwork(nn.Module):
         std = nn.Softplus()(self.std(out))  # Double parenthesis since it's a class
 
         return mu, std
+
+class Frozen_resnet(nn.Module):
+    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15):
+        super(Frozen_resnet, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.lstm_hidden = lstm_hidden
+        self.init_hidden = init_hidden
+        self.MHC_len = MHC_len
+        self.Pep_len = Pep_len
+        self.final_linear_dim = int(lstm_hidden * 4*40) + 2
+
+
+        # Linear Init
+        self.MHC_init = nn.Sequential(nn.Linear(MHC_len, init_hidden), nn.ReLU())
+        self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
+
+        # LSTM
+        self.ELMo_MHC = BidirectionalLSTM(init_hidden, hidden_shape=lstm_hidden, n_layers=3)
+        self.ELMo_MHC_Linear = nn.Sequential(
+            Flatten(),
+            nn.Linear(2*lstm_hidden*40, lstm_linear),
+            nn.BatchNorm1d(lstm_linear),
+            nn.ReLU(),)
+
+        self.ELMo_pep = BidirectionalLSTM(init_hidden, hidden_shape=lstm_hidden, n_layers=3)
+        self.ELMo_pep_Linear = nn.Sequential(
+            Flatten(),
+            nn.Linear(2*lstm_hidden*40, lstm_linear),
+            nn.BatchNorm1d(lstm_linear),
+            nn.ReLU(),
+        )
+
+        self.final_linear = nn.Sequential(
+            nn.Linear(self.final_linear_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
+        )
+
+    def Input_To_LSTM(self, x):
+        x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
+
+        # Peptide
+        x_peptide = self.pep_init(x_peptide)
+        x_peptide = self.ELMo_pep(x_peptide)[0]
+
+        # MHC
+        x_MHC = self.MHC_init(x_MHC)
+        x_MHC = self.ELMo_MHC(x_MHC)[0]
+
+        return x_peptide, x_MHC
+
+    def forward(self, x, Resnet_input):
+        x_peptide, x_MHC = self.Input_To_LSTM(x)
+
+        Res_mu, Res_std = Resnet_input
+        Res_mu = Res_mu.detach().to(self.device)
+        Res_std = Res_std.detach().to(self.device)
+
+        #shape stuff
+        x = torch.cat((x_peptide, x_MHC), dim=2)
+        x = x.view(x.shape[0], -1)
+        x = torch.cat((x, Res_mu, Res_std), dim=1)
+        x = torch.sigmoid(self.final_linear(x))
+
+        return x
+
+
+
+
+
 
 
 class DeepLigand(nn.Module):

@@ -143,7 +143,6 @@ def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
 
     if type(Partition) is not list:
         Partition = [Partition]
-    MHC_len = len(max(list(mapping_dict.keys()), key=len))
     colnames = ['Peptide', 'BindingAffinity', 'MHC']
     X = pd.DataFrame(columns=colnames)
 
