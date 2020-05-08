@@ -23,17 +23,15 @@ All_data = {0, 1, 2, 3, 4}
 # Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
-n_epoch = 2
+n_epoch = 100
 batch_size = 128
 lr = 1e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 save_dir = './checkpoints/'
 
-outfile_resnet = open('model_output_resnet.txt', 'w')
-outfile_resnet.write('split\tMHC\tPeptide\ty\ty_pred\n')
-outfile_total = open('model_output_resnet.txt', 'w')
-outfile_total.write('split\tMHC\tPeptide\ty\ty_pred\n')
+outfile = open('model_output.txt', 'w')
+outfile.write('split\tMHC\tPeptide\ty\ty_pred\n')
 
 def criterion(y, mu, std=None, normal_dist=True):
     if normal_dist:
@@ -41,7 +39,6 @@ def criterion(y, mu, std=None, normal_dist=True):
     else:
         loss = nn.MSELoss()(mu, y)
     return loss.mean()
-
 
 for test_set in range(5):
     test_loader = torch.utils.data.DataLoader(
@@ -53,7 +50,7 @@ for test_set in range(5):
         if test_set == validation_set:
             continue
         k += 1
-        best_test_MSE = np.inf
+        best_val_MSE = np.inf
 
         # data loading: [N, Concat_length, Amino acids]
         train_set = list(All_data - set([test_set, validation_set]))
@@ -72,7 +69,7 @@ for test_set in range(5):
                 net.train()
                 X = X.permute(0, 2, 1).float()
                 mu, std = net(X.to(device))
-                loss = criterion(y.to(device).float(), mu, std)  # , normal_dist=False)
+                loss = criterion(y.to(device).float(), mu, std)#, normal_dist=False)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -97,65 +94,17 @@ for test_set in range(5):
             print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
                 k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
 
-            if np.mean(val_batch_loss) < best_test_MSE:
+            if np.mean(val_batch_loss) < best_val_MSE:
                 best_epoch = epoch
-                best_test_MSE = np.mean(val_batch_loss)
+                best_val_MSE = np.mean(val_batch_loss)
                 save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
 
             if epoch - best_epoch > 10:  # Early stopping
                 break
 
         performance_testing_print(
-            data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion, k, outfile_resnet)
+            data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion, k, outfile)
 
-        net.eval()
-        net2 = Frozen_resnet().to(device)
-        optimizer = optim.Adam(net2.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3)
+outfile.close()
 
-        for epoch in range(1, n_epoch + 1):
-            train_batch_loss = []
-            for X, y in tqdm(train_loader):
-                net2.train()
-                X = X.permute(0, 2, 1).float().to(device)
-                with torch.no_grad():
-                    res_out = net(X)
-                y_pred = net2(X, res_out)  # detach because i'm paranoid about gradients
-                loss = nn.MSELoss()(y.to(device).float(), y_pred)  # , normal_dist=False)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                train_batch_loss.append(loss.item())
-
-            val_batch_loss, test_batch_loss = [], []
-            net2.eval()
-            for X, y in tqdm(val_loader):
-                X = X.permute(0, 2, 1).float().to(device)
-                with torch.no_grad():
-                    res_out = net(X)
-                    y_pred = net2(X, res_out)
-                    nn.MSELoss()(y.to(device).float(), y_pred)
-                    val_batch_loss.append(loss.item())
-
-            scheduler.step(np.mean(val_batch_loss))
-            train_epoch_loss.append(np.mean(train_batch_loss))
-            val_epoch_loss.append(np.mean(val_batch_loss))
-
-            print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
-                k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
-
-            if np.mean(val_batch_loss) < best_test_MSE:
-                best_epoch = epoch
-                best_test_MSE = np.mean(val_batch_loss)
-                save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
-
-            if epoch - best_epoch > 10:  # Early stopping
-                break
-
-        performance_testing_print(
-            data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net2, criterion, k, outfile_total)
-
-outfile_resnet.close()
-outfile_total.close()

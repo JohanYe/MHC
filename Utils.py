@@ -270,8 +270,8 @@ def load_checkpoint(checkpoint, model):
     new_dict.update(saved_dict)
     model.load_state_dict(new_dict)
 
-def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion,
-                              k, outfile):
+def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile,
+                              net2=None,resnet=False):
     # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
     # Test loop is funny due to having to save MHC Allele
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -285,37 +285,16 @@ def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, 
         else:
             batch_df = test_df.iloc[batch_size * i:batch_size * (i + 1)]
         X, y = df_ToTensor(batch_df, MHC_len, Peptide_len)
-        X = X.permute(0, 2, 1).float()
+        X = X.permute(0, 2, 1).float().to(device)
         with torch.no_grad():
-            mu, std = net(X.to(device))
+            if resnet:
+                res_out = net(X)
+                mu = net2(X, res_out)  # mu for easy variable name stuff
+            else:
+                mu, std = net(X)
         # For each value in batch print performance to outfile
         for j in range(batch_df.shape[0]):
             MHC = test_df.iloc[(batch_size * i) + j].MHC_names
             Peptide = test_df.iloc[(batch_size * i) + j].Peptide
             print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)
 
-def performance_testing_print_Resnet(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, criterion,
-                              k, outfile):
-
-
-    # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
-    # Test loop is funny due to having to save MHC Allele
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    test_df = MHC_df(data_path, test_set, BA_EL, MHC_dict)
-    batches_per_epoch = int(np.ceil(test_df.shape[0] / batch_size))
-    test_df = test_df.sample(frac=1).reset_index(drop=True)  # Shuffling data set
-
-    for i in tqdm(range(batches_per_epoch)):
-        if i == batches_per_epoch:  # Batching
-            batch_df = test_df.iloc[batch_size * i:]
-        else:
-            batch_df = test_df.iloc[batch_size * i:batch_size * (i + 1)]
-        X, y = df_ToTensor(batch_df, MHC_len, Peptide_len)
-        X = X.permute(0, 2, 1).float()
-        with torch.no_grad():
-            mu, std = net(X.to(device))
-        # For each value in batch print performance to outfile
-        for j in range(batch_df.shape[0]):
-            MHC = test_df.iloc[(batch_size * i) + j].MHC_names
-            Peptide = test_df.iloc[(batch_size * i) + j].Peptide
-            print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)
