@@ -30,10 +30,14 @@ train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 save_dir = './checkpoints/'
 
-outfile_resnet = open('model_output_resnet.txt', 'w')
+file1 = 'model_output_resnet.txt'
+file2 = 'model_output_total.txt'
+
+outfile_resnet = open(file1, 'w')
 outfile_resnet.write('split\tMHC\tPeptide\ty\ty_pred\n')
-outfile_total = open('model_output_total.txt', 'w')
+outfile_total = open(file2, 'w')
 outfile_total.write('split\tMHC\tPeptide\ty\ty_pred\n')
+
 
 def criterion(y, mu, std=None, normal_dist=True):
     if normal_dist:
@@ -165,3 +169,27 @@ for test_set in range(5):
 
 outfile_resnet.close()
 outfile_total.close()
+
+
+df = pd.read_csv(file1, sep='\t')
+df1 = pd.DataFrame(columns=df.columns)
+
+for allele in df.MHC.unique():
+    tmp = df[df.MHC == allele]
+    for pep in tmp.Peptide.unique():
+        tmp2 = tmp[tmp.Peptide == pep]
+        df1.loc[df1.shape[0]] = [tmp2.split.mean(), allele, pep, tmp2.y.unique().item(), tmp2.y_pred.mean()]
+
+df1.to_csv('preprocessed_' + file2, index=False)
+
+
+df = pd.read_csv(file2, sep='\t')
+df1 = pd.DataFrame(columns=df.columns)
+
+for allele in df.MHC.unique():
+    tmp = df[df.MHC == allele]
+    for pep in tmp.Peptide.unique():
+        tmp2 = tmp[tmp.Peptide == pep]
+        df1.loc[df1.shape[0]] = [tmp2.split.mean(), allele, pep, tmp2.y.unique().item(), tmp2.y_pred.mean()]
+
+df1.to_csv('preprocessed_' + file2, index=False)

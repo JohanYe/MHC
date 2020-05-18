@@ -296,5 +296,8 @@ def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, 
         for j in range(batch_df.shape[0]):
             MHC = test_df.iloc[(batch_size * i) + j].MHC_names
             Peptide = test_df.iloc[(batch_size * i) + j].Peptide
-            print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)
+            if resnet:
+                print(k, MHC, Peptide, y[j].item(), mu[j].item(), sep='\t', file=outfile)
+            else:
+                print(k, MHC, Peptide, y[j].item(), mu[j].item(), std[j].item(), sep='\t', file=outfile)
 
