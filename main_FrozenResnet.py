@@ -68,7 +68,6 @@ for test_set in range(5):
 
         net = ResidualNetwork(block_type='cabd').to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3)
 
         for epoch in range(1, 2):
             train_batch_loss = []
@@ -94,7 +93,6 @@ for test_set in range(5):
                     # loss = nn.MSELoss()(mu, y.to(device))
                     val_batch_loss.append(loss.item())
 
-            scheduler.step(np.mean(val_batch_loss))
             train_epoch_loss.append(np.mean(train_batch_loss))
             val_epoch_loss.append(np.mean(val_batch_loss))
 
@@ -118,7 +116,6 @@ for test_set in range(5):
         net.eval()
         net2 = Frozen_resnet().to(device)
         optimizer = optim.Adam(net2.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3)
 
         for epoch in range(1, n_epoch + 1):
             train_batch_loss = []
@@ -146,7 +143,6 @@ for test_set in range(5):
                     nn.MSELoss()(y.to(device).float(), y_pred)
                     val_batch_loss.append(loss.item())
 
-            scheduler.step(np.mean(val_batch_loss))
             train_epoch_loss.append(np.mean(train_batch_loss))
             val_epoch_loss.append(np.mean(val_batch_loss))
 
