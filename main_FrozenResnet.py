@@ -70,7 +70,7 @@ for test_set in range(5):
         optimizer = optim.Adam(net.parameters(), lr=lr)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3)
 
-        for epoch in range(1, n_epoch + 1):
+        for epoch in range(1, 2):
             train_batch_loss = []
             for X, y in tqdm(train_loader):
                 net.train()
@@ -193,3 +193,19 @@ for allele in df.MHC.unique():
         df1.loc[df1.shape[0]] = [tmp2.split.mean(), allele, pep, tmp2.y.unique().item(), tmp2.y_pred.mean()]
 
 df1.to_csv('preprocessed_' + file2, index=False)
+
+
+
+x_peptide, x_MHC = net2.Input_To_LSTM(X)
+
+Res_mu, Res_std = res_out
+Res_mu = Res_mu.detach().to(device)
+Res_std = Res_std.detach().to(device)
+
+# shape stuff
+x = torch.cat((x_peptide, x_MHC), dim=2)
+x = x.view(x.shape[0], -1)
+x = net2.fc(x)
+x = torch.cat((x, Res_mu, Res_std), dim=1)
+net2.final_linear(x)
+x = torch.sigmoid(net2.final_linear(x))

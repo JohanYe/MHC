@@ -122,7 +122,7 @@ class Frozen_resnet(nn.Module):
         self.init_hidden = init_hidden
         self.MHC_len = MHC_len
         self.Pep_len = Pep_len
-        self.final_linear_dim = int(lstm_hidden * 4*40) + 2
+        self.final_linear_dim = 1024
 
 
         # Linear Init
@@ -145,12 +145,12 @@ class Frozen_resnet(nn.Module):
             nn.ReLU(),
         )
 
-        self.final_linear = nn.Sequential(
-            nn.Linear(self.final_linear_dim, 256),
-            nn.BatchNorm1d(256),
+        self.fc = nn.Sequential(
+            nn.Linear(int(lstm_hidden * 4*40), self.final_linear_dim),
+            nn.BatchNorm1d(self.final_linear_dim),
             nn.ReLU(),
-            nn.Linear(256, 1),
         )
+        self.final_linear = nn.Linear(self.final_linear_dim + 2, 1)
 
     def Input_To_LSTM(self, x):
         x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
@@ -175,6 +175,7 @@ class Frozen_resnet(nn.Module):
         #shape stuff
         x = torch.cat((x_peptide, x_MHC), dim=2)
         x = x.view(x.shape[0], -1)
+        x = self.fc(x)
         x = torch.cat((x, Res_mu, Res_std), dim=1)
         x = torch.sigmoid(self.final_linear(x))
 
@@ -233,10 +234,60 @@ class DeepLigand(nn.Module):
 
         return out2
 
+class Resnet_Blosum_direct(nn.Module):
+    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15):
+        super(Resnet_Blosum_direct, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.MHC_len = MHC_len
+        self.Pep_len = Pep_len
+        self.final_linear_dim = int(lstm_hidden * 4 * 40) + 2
+
+        # Linear Init
+        self.MHC_init = nn.Sequential(nn.Linear(MHC_len, init_hidden), nn.ReLU())
+        self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
 
 
+        self.ELMo_pep_Linear = nn.Sequential(
+            Flatten(),
+            nn.Linear(2 * lstm_hidden * 40, lstm_linear),
+            nn.BatchNorm1d(lstm_linear),
+            nn.ReLU(),
+        )
 
+        self.final_linear = nn.Sequential(
+            nn.Linear(self.final_linear_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
+        )
 
+    def Input_To_LSTM(self, x):
+        x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
+
+        # Peptide
+        x_peptide = self.pep_init(x_peptide)
+        x_peptide = self.ELMo_pep(x_peptide)[0]
+
+        # MHC
+        x_MHC = self.MHC_init(x_MHC)
+        x_MHC = self.ELMo_MHC(x_MHC)[0]
+
+        return x_peptide, x_MHC
+
+    def forward(self, x, Resnet_input):
+        x_peptide, x_MHC = self.Input_To_LSTM(x)
+
+        Res_mu, Res_std = Resnet_input
+        Res_mu = Res_mu.detach().to(self.device)
+        Res_std = Res_std.detach().to(self.device)
+
+        # shape stuff
+        x = torch.cat((x_peptide, x_MHC), dim=2)
+        x = x.view(x.shape[0], -1)
+        x = torch.cat((x, Res_mu, Res_std), dim=1)
+        x = torch.sigmoid(self.final_linear(x))
+
+        return x
 
 
 
