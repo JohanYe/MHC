@@ -24,7 +24,7 @@ All_data = {0, 1, 2, 3, 4}
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
 n_epoch = 100
-batch_size = 128
+batch_size = 512
 lr = 1e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
@@ -43,7 +43,7 @@ def criterion(y, mu, std=None, normal_dist=True):
     if normal_dist:
         loss = -torch.distributions.Normal(loc=mu, scale=std).log_prob(y)
     else:
-        loss = nn.MSELoss()(mu, y)
+        loss = nn.functional.mse_loss(mu, y)
     return loss.mean()
 
 
@@ -66,7 +66,7 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
-        net = ResidualNetwork(block_type='bacd', n_layers=10).to(device)
+        net = ResidualNetwork(block_type='bacd', n_layers=5).to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
 
         for epoch in range(1, 2):
@@ -75,7 +75,7 @@ for test_set in range(5):
                 net.train()
                 X = X.permute(0, 2, 1).float()
                 mu, std = net(X.to(device))
-                loss = criterion(y.to(device).float(), mu, std)  # , normal_dist=False)
+                loss = criterion(y.to(device).float(), mu, std, normal_dist=True)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -90,7 +90,6 @@ for test_set in range(5):
                     net.eval()
                     mu, std = net(X.to(device))
                     loss = criterion(y.to(device).float(), mu, std, normal_dist=False)
-                    # loss = nn.MSELoss()(mu, y.to(device))
                     val_batch_loss.append(loss.item())
 
             train_epoch_loss.append(np.mean(train_batch_loss))
@@ -125,7 +124,7 @@ for test_set in range(5):
                 with torch.no_grad():
                     res_out = net(X)
                 y_pred = net2(X, res_out)  # detach because i'm paranoid about gradients
-                loss = nn.MSELoss()(y.to(device).float(), y_pred)  # , normal_dist=False)
+                loss = nn.functional.mse_loss(y_pred, y.to(device).float()) # , normal_dist=False)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -142,7 +141,7 @@ for test_set in range(5):
                     net2.eval()
                     res_out = net(X)
                     y_pred = net2(X, res_out)
-                    nn.MSELoss()(y.to(device).float(), y_pred)
+                    nn.functional.mse_loss(y_pred, y.to(device).float())
                     val_batch_loss.append(loss.item())
 
             train_epoch_loss.append(np.mean(train_batch_loss))
