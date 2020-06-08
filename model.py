@@ -73,6 +73,7 @@ class ResidualNetwork(nn.Module):
         self.seq_len = seq_len
         self.n_Linear = n_Linear
         self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 2)  # i dk why this is round and not int/floor as usual
+        self.strides = [2]*n_layers if n_layers <= 5 else [2, 1] * (n_layers // 2)
 
         self.Residual_initial_MHC = nn.Sequential(
             nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
@@ -83,7 +84,8 @@ class ResidualNetwork(nn.Module):
                                 filters,
                                 block_type=block_type,
                                 dropout=0.1,
-                                nonlin=nn.LeakyReLU()) for _ in range(n_layers-1)]
+                                nonlin=nn.LeakyReLU(),
+                                stride=self.strides[i]) for i in range(n_layers-1)]
         layers.append(ResidualBlock(filters, filters//2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
 
         for m in self.modules():

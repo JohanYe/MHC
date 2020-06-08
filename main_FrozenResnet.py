@@ -66,7 +66,7 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
-        net = ResidualNetwork(block_type='cabd').to(device)
+        net = ResidualNetwork(block_type='bacd', n_layers=10).to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
 
         for epoch in range(1, 2):
@@ -84,10 +84,10 @@ for test_set in range(5):
                 train_batch_loss.append(loss.item())
 
             val_batch_loss, test_batch_loss = [], []
-            net.eval()
             for X, y in tqdm(val_loader):
                 X = X.permute(0, 2, 1).float()
                 with torch.no_grad():
+                    net.eval()
                     mu, std = net(X.to(device))
                     loss = criterion(y.to(device).float(), mu, std, normal_dist=False)
                     # loss = nn.MSELoss()(mu, y.to(device))
@@ -113,13 +113,13 @@ for test_set in range(5):
 
         # LSTM WITH FROZEN RESNET
         best_val_MSE = np.inf
-        net.eval()
         net2 = Frozen_resnet().to(device)
         optimizer = optim.Adam(net2.parameters(), lr=lr)
 
         for epoch in range(1, n_epoch + 1):
             train_batch_loss = []
             for X, y in tqdm(train_loader):
+                net.eval()
                 net2.train()
                 X = X.permute(0, 2, 1).float().to(device)
                 with torch.no_grad():
@@ -134,10 +134,12 @@ for test_set in range(5):
                 train_batch_loss.append(loss.item())
 
             val_batch_loss, test_batch_loss = [], []
-            net2.eval()
+
             for X, y in tqdm(val_loader):
                 X = X.permute(0, 2, 1).float().to(device)
                 with torch.no_grad():
+                    net.eval()
+                    net2.eval()
                     res_out = net(X)
                     y_pred = net2(X, res_out)
                     nn.MSELoss()(y.to(device).float(), y_pred)
@@ -165,43 +167,3 @@ for test_set in range(5):
 
 outfile_resnet.close()
 outfile_total.close()
-
-
-df = pd.read_csv(file1, sep='\t')
-df1 = pd.DataFrame(columns=df.columns)
-
-for allele in df.MHC.unique():
-    tmp = df[df.MHC == allele]
-    for pep in tmp.Peptide.unique():
-        tmp2 = tmp[tmp.Peptide == pep]
-        df1.loc[df1.shape[0]] = [tmp2.split.mean(), allele, pep, tmp2.y.unique().item(), tmp2.y_pred.mean()]
-
-df1.to_csv('preprocessed_' + file2, index=False)
-
-
-df = pd.read_csv(file2, sep='\t')
-df1 = pd.DataFrame(columns=df.columns)
-
-for allele in df.MHC.unique():
-    tmp = df[df.MHC == allele]
-    for pep in tmp.Peptide.unique():
-        tmp2 = tmp[tmp.Peptide == pep]
-        df1.loc[df1.shape[0]] = [tmp2.split.mean(), allele, pep, tmp2.y.unique().item(), tmp2.y_pred.mean()]
-
-df1.to_csv('preprocessed_' + file2, index=False)
-
-
-
-x_peptide, x_MHC = net2.Input_To_LSTM(X)
-
-Res_mu, Res_std = res_out
-Res_mu = Res_mu.detach().to(device)
-Res_std = Res_std.detach().to(device)
-
-# shape stuff
-x = torch.cat((x_peptide, x_MHC), dim=2)
-x = x.view(x.shape[0], -1)
-x = net2.fc(x)
-x = torch.cat((x, Res_mu, Res_std), dim=1)
-net2.final_linear(x)
-x = torch.sigmoid(net2.final_linear(x))
