@@ -25,7 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
 n_epoch = 100
 batch_size = 512
-lr = 1e-4
+lr = 5e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 save_dir = './checkpoints/'
@@ -66,10 +66,10 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
-        net = ResidualNetwork(block_type='bacd', n_layers=5).to(device)
+        net = ResidualNetwork(block_type='bacd', n_layers=8).to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
 
-        for epoch in range(1, 2):
+        for epoch in range(1, n_epoch):
             train_batch_loss = []
             for X, y in tqdm(train_loader):
                 net.train()
@@ -141,7 +141,7 @@ for test_set in range(5):
                     net2.eval()
                     res_out = net(X)
                     y_pred = net2(X, res_out)
-                    nn.functional.mse_loss(y_pred, y.to(device).float())
+                    loss = nn.functional.mse_loss(y_pred, y.to(device).float())
                     val_batch_loss.append(loss.item())
 
             train_epoch_loss.append(np.mean(train_batch_loss))
