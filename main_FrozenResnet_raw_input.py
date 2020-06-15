@@ -112,7 +112,7 @@ for test_set in range(5):
 
         # LSTM WITH FROZEN RESNET
         best_val_MSE = np.inf
-        net2 = Frozen_resnet().to(device)
+        net2 = Resnet_Blosum_direct(block_type='bacd').to(device)
         optimizer = optim.Adam(net2.parameters(), lr=lr)
 
         for epoch in range(1, n_epoch + 1):
