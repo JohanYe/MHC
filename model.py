@@ -126,7 +126,7 @@ class Frozen_resnet(nn.Module):
         self.init_hidden = init_hidden
         self.MHC_len = MHC_len
         self.Pep_len = Pep_len
-        self.final_linear_dim = 1024
+        self.final_linear_dim = [1024, 128]
 
 
         # Linear Init
@@ -150,11 +150,14 @@ class Frozen_resnet(nn.Module):
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(int(lstm_hidden * 4*40), self.final_linear_dim),
-            nn.BatchNorm1d(self.final_linear_dim),
+            nn.Linear(int(lstm_hidden * 4*40), self.final_linear_dim[0]),
+            nn.BatchNorm1d(self.final_linear_dim[0]),
+            nn.ReLU(),
+            nn.Linear(self.final_linear_dim[0], self.final_linear_dim[1]),
+            nn.BatchNorm1d(self.final_linear_dim[1]),
             nn.ReLU(),
         )
-        self.final_linear = nn.Linear(self.final_linear_dim + 2, 1)
+        self.final_linear = nn.Linear(self.final_linear_dim[1] + 2, 1)
 
     def Input_To_LSTM(self, x):
         x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
@@ -184,6 +187,21 @@ class Frozen_resnet(nn.Module):
         x = torch.sigmoid(self.final_linear(x))
 
         return x
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -222,8 +240,6 @@ class DeepLigand(nn.Module):
             nn.Linear(128, 1),
         )
 
-
-
     def forward(self, x):
 
         # LSTM
@@ -237,6 +253,7 @@ class DeepLigand(nn.Module):
         # out = torch.sigmoid(out)
 
         return out2
+
 
 class Resnet_Blosum_direct(nn.Module):
     def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15):
@@ -300,26 +317,3 @@ class Resnet_Blosum_direct(nn.Module):
 
 
 
-
-
-class MortenFFN(nn.Module):
-    def __init__(self, input_shape, nh1=56, nh2=66):
-        super(MortenFFN, self).__init__()
-
-        self.nh1 = nh1
-        self.nh2 = nh2
-        self.input_shape = input_shape
-
-        self.layers(
-            Flatten(),
-            nn.Linear(self.input_shape, nh1),
-            nn.BatchNorm1d(nh2),
-            nn.ReLU(),
-            nn.Linear(nh1, nh2),
-            nn.BatchNorm1d(nh2),
-            nn.ReLU,
-        )
-
-    def forward(self, x):
-        out = self.layers(x)
-        return out

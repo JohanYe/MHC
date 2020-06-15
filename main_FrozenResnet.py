@@ -24,8 +24,8 @@ All_data = {0, 1, 2, 3, 4}
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
 n_epoch = 100
-batch_size = 512
-lr = 5e-4
+batch_size = 1024
+lr = 1e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 save_dir = './checkpoints/'
@@ -75,7 +75,7 @@ for test_set in range(5):
                 net.train()
                 X = X.permute(0, 2, 1).float()
                 mu, std = net(X.to(device))
-                loss = criterion(y.to(device).float(), mu, std, normal_dist=True)
+                loss = criterion(y.to(device).float(), mu, std, normal_dist=False)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -124,7 +124,7 @@ for test_set in range(5):
                 with torch.no_grad():
                     res_out = net(X)
                 y_pred = net2(X, res_out)  # detach because i'm paranoid about gradients
-                loss = nn.functional.mse_loss(y_pred, y.to(device).float()) # , normal_dist=False)
+                loss = nn.functional.mse_loss(y_pred, y.to(device).float())  # , normal_dist=False)
 
                 optimizer.zero_grad()
                 loss.backward()
