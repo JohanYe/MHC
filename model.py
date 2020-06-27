@@ -128,7 +128,7 @@ class Frozen_resnet(nn.Module):
         self.init_hidden = init_hidden
         self.MHC_len = MHC_len
         self.Pep_len = Pep_len
-        self.final_linear_dim = 512
+        self.final_linear_dim = 1024
 
 
         # Linear Init

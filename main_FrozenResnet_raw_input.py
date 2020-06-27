@@ -29,6 +29,7 @@ lr = 1e-4
 train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
 k = 0
 save_dir = './checkpoints/'
+patience = 20
 
 file1 = 'model_output_resnet.txt'
 file2 = 'model_output_total.txt'
@@ -103,10 +104,10 @@ for test_set in range(5):
                 best_val_MSE = np.mean(val_batch_loss)
                 save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
 
-            if epoch - best_epoch > 10:  # Early stopping
+            if epoch - best_epoch > patience:  # Early stopping
                 break
 
-        load_checkpoint('./checkpoints/best.pth.tar', net)
+        load_checkpoint(save_dir + 'best.pth.tar', net)
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile_resnet)
 
@@ -155,10 +156,10 @@ for test_set in range(5):
                 best_val_MSE = np.mean(val_batch_loss)
                 save_checkpoint({'epoch': epoch, 'state_dict': net2.state_dict()}, save_dir)
 
-            if epoch - best_epoch > 10:  # Early stopping
+            if epoch - best_epoch > patience:  # Early stopping
                 break
 
-        load_checkpoint('./checkpoints/best.pth.tar', net2)
+        load_checkpoint(save_dir + 'best.pth.tar', net2)
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict,
             batch_size, MHC_len, Peptide_len, net, k, outfile_total,
