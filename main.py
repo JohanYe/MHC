@@ -122,12 +122,14 @@ for test_set in range(5):
             if np.mean(val_batch_loss) < best_val_MSE:
                 best_epoch = epoch
                 best_val_MSE = np.mean(val_batch_loss)
-                save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
+                save_checkpoint({'epoch': best_epoch, 'state_dict': net.state_dict()},
+                                save_dir,
+                                ckpt_name='best' + str(best_epoch) + '_resnet.pth.tar')
 
             if epoch - best_epoch > patience:  # Early stopping
                 break
 
-        load_checkpoint(save_dir + '/best.pth.tar', net)
+        load_checkpoint(save_dir + 'best' + str(best_epoch) + '_resnet.pth.tar', net)
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile_resnet)
 
@@ -178,12 +180,14 @@ for test_set in range(5):
                 if np.mean(val_batch_loss) < best_val_MSE:
                     best_epoch = epoch
                     best_val_MSE = np.mean(val_batch_loss)
-                    save_checkpoint({'epoch': epoch, 'state_dict': net2.state_dict()}, save_dir)
+                    save_checkpoint({'epoch': best_epoch, 'state_dict': net2.state_dict()},
+                                    save_dir,
+                                    ckpt_name='best' + str(best_epoch) + '_total.pth.tar')
 
                 if epoch - best_epoch > patience:  # Early stopping
                     break
 
-            load_checkpoint(save_dir + 'best.pth.tar', net2)
+            load_checkpoint(save_dir + 'best' + str(best_epoch) + '_total.pth.tar', net2)
             performance_testing_print(
                 data_path, test_set, BA_EL, MHC_dict,
                 batch_size, MHC_len, Peptide_len, net, k, outfile_total,

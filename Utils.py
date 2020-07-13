@@ -258,7 +258,7 @@ def TxtToTensor(data_path, Partition, BA_EL, mapping_dict):
 def save_checkpoint(state, save_dir, ckpt_name='best.pth.tar'):
     file_path = os.path.join(save_dir, ckpt_name)
     if not os.path.exists(save_dir):
-        print("Save directory dosen't exist! Makind directory {}".format(save_dir))
+        print("Save directory dosen't exist! Making directory {}".format(save_dir))
         os.mkdir(save_dir)
 
     torch.save(state, file_path)
