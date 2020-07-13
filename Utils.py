@@ -284,6 +284,7 @@ def make_dir(directory_path):
 
 def generate_experiment_folders(root_folder, argument_parser):
     exp_path = str(root_folder) + "/" + datetime.date.today().strftime("%Y%m%d")
+    exp_path += '-{}_seed'.format(str(argument_parser.seed))
     exp_path += '-{}_lr'.format(str(argument_parser.lr))
     exp_path += '-{}_pat'.format(argument_parser.patience)
     exp_path += '-guass' if argument_parser.gauss else '-predic'
