@@ -4,6 +4,8 @@ import numpy as np
 import torch.nn as nn
 import os
 from tqdm import tqdm
+import sys
+import datetime
 
 class Flatten(nn.Module):
     def forward(self, input):
@@ -269,6 +271,39 @@ def load_checkpoint(checkpoint, model):
     new_dict = model.state_dict()
     new_dict.update(saved_dict)
     model.load_state_dict(new_dict)
+
+def print_stdout(a_string):
+    sys.stdout.write("{}\n".format(a_string))
+
+def make_dir(directory_path):
+    if not os.path.exists(directory_path):
+        os.mkdir(directory_path)
+        print_stdout("Directory {} created.".format(directory_path))
+    else:
+        print_stdout("Directory {} already exists.".format(directory_path))
+
+def generate_experiment_folders(root_folder, argument_parser):
+    exp_path = str(root_folder) + "/" + datetime.date.today().strftime("%Y%m%d")
+    exp_path += '-{}_lr'.format(str(argument_parser.lr))
+    exp_path += '-{}_pat'.format(argument_parser.patience)
+    exp_path += '-guass' if argument_parser.gauss else '-predic'
+    exp_path += '-{}_nresb'.format(argument_parser.n_reslayers)
+    exp_path += '-{}_bt'.format(argument_parser.block_type)
+    if argument_parser.fucking_raw:
+        exp_path += '-raw'
+    elif argument_parser.lstm:
+        exp_path += '-{}_nh-{}_ly_lstm'.format(argument_parser.lstm_nhidden, argument_parser.lstm_nlayers)
+    exp_path += '/'
+    save_dir = exp_path + 'save_dir/'  # name:'checkpoints' cannot be accessed through Jupyter Notebook
+    figure_dir = exp_path + 'figures/'
+    make_dir(exp_path)
+    make_dir(save_dir)
+    make_dir(figure_dir)
+    return exp_path, save_dir, figure_dir
+
+
+
+
 
 def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile,
                               net2=None,resnet=False):

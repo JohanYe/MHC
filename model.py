@@ -136,52 +136,37 @@ class Frozen_resnet(nn.Module):
         self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
 
         # LSTM
-        self.ELMo_MHC = BidirectionalLSTM(init_hidden, hidden_shape=lstm_hidden, n_layers=3)
-        self.ELMo_MHC_Linear = nn.Sequential(
+        self.LSTM = BidirectionalLSTM(init_hidden*2, hidden_shape=lstm_hidden, n_layers=3)
+        self.LSTM_linear = nn.Sequential(
             Flatten(),
             nn.Linear(2*lstm_hidden*40, lstm_linear),
             nn.BatchNorm1d(lstm_linear),
             nn.ReLU(),)
 
-        self.ELMo_pep = BidirectionalLSTM(init_hidden, hidden_shape=lstm_hidden, n_layers=3)
-        self.ELMo_pep_Linear = nn.Sequential(
-            Flatten(),
-            nn.Linear(2*lstm_hidden*40, lstm_linear),
-            nn.BatchNorm1d(lstm_linear),
-            nn.ReLU(),
-        )
-
-        self.fc = nn.Sequential(
-            nn.Linear(int(lstm_hidden * 4*40), self.final_linear_dim),
-            nn.BatchNorm1d(self.final_linear_dim),
-            nn.ReLU(),
-        )
-        self.final_linear = nn.Linear(self.final_linear_dim + 2, 1)
+        self.final_linear = nn.Linear(lstm_linear+2, 1)
 
     def Input_To_LSTM(self, x):
         x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
 
         # Peptide
         x_peptide = self.pep_init(x_peptide)
-        x_peptide = self.ELMo_pep(x_peptide)[0]
-
-        # MHC
         x_MHC = self.MHC_init(x_MHC)
-        x_MHC = self.ELMo_MHC(x_MHC)[0]
 
-        return x_peptide, x_MHC
+        x = torch.cat((x_peptide, x_MHC), dim=2)
+        x = self.LSTM(x)[0]
+        x = self.LSTM_linear(x)
+
+        return x
 
     def forward(self, x, Resnet_input):
-        x_peptide, x_MHC = self.Input_To_LSTM(x)
+        x = self.Input_To_LSTM(x)
 
         Res_mu, Res_std = Resnet_input
         Res_mu = Res_mu.detach().to(self.device)
         Res_std = Res_std.detach().to(self.device)
 
         #shape stuff
-        x = torch.cat((x_peptide, x_MHC), dim=2)
         x = x.view(x.shape[0], -1)
-        x = self.fc(x)
         x = torch.cat((x, Res_mu, Res_std), dim=1)
         x = torch.sigmoid(self.final_linear(x))
 
