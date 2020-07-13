@@ -26,6 +26,7 @@ parser.add_argument('--block_type', type=str, default='bacd')
 parser.add_argument('--n_reslayers', type=int, default=5)
 parser.add_argument('--lstm_nhidden', type=int, default=64)
 parser.add_argument('--lstm_nlayers', type=int, default=2)
+parser.add_argument('--rezero', type=bool, default=False)
 args = parser.parse_args()
 
 
@@ -87,7 +88,7 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
-        net = ResidualNetwork(block_type=args.block_type, n_layers=args.n_reslayers).to(device)
+        net = ResidualNetwork(block_type=args.block_type, n_layers=args.n_reslayers, rezero=args.rezero).to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
 
         for epoch in range(1, n_epoch):
@@ -130,6 +131,7 @@ for test_set in range(5):
                 break
 
         load_checkpoint(save_dir + 'best' + str(best_epoch) + '_resnet.pth.tar', net)
+
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile_resnet)
 

@@ -28,7 +28,8 @@ class ResidualBlock(nn.Module):
     # For example, bacd (batchnorm, activation, conv, dropout).
     # TODO: ADDTT uses different number of filters in inner, should we consider that? I've only allowed same currently.
 
-    def __init__(self, c_in, c_out, nonlin=nn.ReLU(), kernel_size=3, block_type=None, dropout=None, stride=2):
+    def __init__(self, c_in, c_out, nonlin=nn.ReLU(), kernel_size=3, block_type=None, dropout=None, stride=2,
+                 rezero=False):
         super(ResidualBlock, self).__init__()
 
         assert all(c in 'abcd' for c in block_type)
@@ -38,6 +39,8 @@ class ResidualBlock(nn.Module):
         self.block_type = block_type
         self.dropout = dropout
         self.stride = stride
+        self.alpha = nn.Parameter(torch.Tensor([0]))  # rezero stuff
+        self.rezero = rezero  # rezero stuff
 
         self.pre_conv = nn.Conv1d(
             c_in, c_out, kernel_size=kernel_size, padding=self.kernel_size // 2, stride=stride)
@@ -58,7 +61,7 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         x = self.pre_conv(x)
-        x = self.res(x) + x
+        x = self.alpha * self.res(x) + x if self.rezero else self.res(x) + x
         if self.post_conv is not None:
             x = self.post_conv(x)
 
@@ -66,12 +69,13 @@ class ResidualBlock(nn.Module):
 
 
 class ResidualNetwork(nn.Module):
-    def __init__(self, filters=256, n_layers=5, seq_len=49, n_Linear=256, block_type=None):
+    def __init__(self, filters=256, n_layers=5, seq_len=49, n_Linear=256, block_type=None, rezero=False):
         super(ResidualNetwork, self).__init__()
         self.n_layers = n_layers
         self.block_type = block_type
         self.seq_len = seq_len
         self.n_Linear = n_Linear
+        self.rezero = rezero
         self.strides = [2]*n_layers if n_layers <= 5 else [2] * 2 + [1]*(n_layers-5) + [2]*3
         # idk why this is round and not int/floor as usual
         self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 2) if n_layers <= 5 else \
@@ -87,7 +91,8 @@ class ResidualNetwork(nn.Module):
                                 block_type=block_type,
                                 dropout=0.1,
                                 nonlin=nn.LeakyReLU(),
-                                stride=self.strides[i]) for i in range(n_layers-1)]
+                                stride=self.strides[i],
+                                rezero=rezero) for i in range(n_layers-1)]
         layers.append(ResidualBlock(filters, filters//2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
 
         for m in self.modules():

@@ -294,6 +294,8 @@ def generate_experiment_folders(root_folder, argument_parser):
         exp_path += '-raw'
     elif argument_parser.lstm:
         exp_path += '-{}_nh-{}_ly_lstm'.format(argument_parser.lstm_nhidden, argument_parser.lstm_nlayers)
+    if argument_parser.rezero:
+        exp_path += '-rezero'
     exp_path += '/'
     save_dir = exp_path + 'save_dir/'  # name:'checkpoints' cannot be accessed through Jupyter Notebook
     figure_dir = exp_path + 'figures/'
