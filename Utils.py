@@ -287,7 +287,7 @@ def generate_experiment_folders(root_folder, argument_parser):
     exp_path += '-{}_seed'.format(str(argument_parser.seed))
     exp_path += '-{}_lr'.format(str(argument_parser.lr))
     exp_path += '-{}_pat'.format(argument_parser.patience)
-    exp_path += '-guass' if argument_parser.gauss else '-predic'
+    exp_path += '-gauss' if argument_parser.gauss else '-predic'
     exp_path += '-{}_nresb'.format(argument_parser.n_reslayers)
     exp_path += '-{}_bt'.format(argument_parser.block_type)
     if argument_parser.fucking_raw:
