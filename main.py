@@ -141,7 +141,7 @@ for test_set in range(5):
             if args.fucking_raw:
                 net2 = Resnet_Blosum_direct(block_type=args.block_type).to(device)
             else:
-                net2 = Frozen_resnet(lstm_hidden=args.lstm_nhidden).to(device)
+                net2 = Frozen_resnet(lstm_hidden=args.lstm_nhidden, lstm_layers=args.lstm_nlayers).to(device)
             optimizer = optim.Adam(net2.parameters(), lr=lr)
 
             for epoch in range(1, n_epoch + 1):

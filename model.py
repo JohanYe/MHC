@@ -126,7 +126,7 @@ class ResidualNetwork(nn.Module):
 
 
 class Frozen_resnet(nn.Module):
-    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15):
+    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15, lstm_layers=3):
         super(Frozen_resnet, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lstm_hidden = lstm_hidden
@@ -134,6 +134,7 @@ class Frozen_resnet(nn.Module):
         self.MHC_len = MHC_len
         self.Pep_len = Pep_len
         self.final_linear_dim = 1024
+        self.lstm_layers = lstm_layers
 
 
         # Linear Init
@@ -141,7 +142,7 @@ class Frozen_resnet(nn.Module):
         self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
 
         # LSTM
-        self.LSTM = BidirectionalLSTM(init_hidden*2, hidden_shape=lstm_hidden, n_layers=3)
+        self.LSTM = BidirectionalLSTM(init_hidden*2, hidden_shape=lstm_hidden, n_layers=lstm_layers)
         self.LSTM_linear = nn.Sequential(
             Flatten(),
             nn.Linear(2*lstm_hidden*40, lstm_linear),
