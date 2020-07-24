@@ -40,6 +40,8 @@ MHC_len = MHC[1].map(len).max()
 MHC_dict = MHC.set_index(0).to_dict()[1]
 All_data = {0, 1, 2, 3, 4}
 torch.manual_seed(args.seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(args.seed)
 
 # Hyperparams:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
