@@ -58,7 +58,7 @@ file1 = save_dir + args.resnet_output_file
 file2 = save_dir + args.total_output_file
 
 outfile_resnet = open(file1, 'w')
-outfile_resnet.write('split\tMHC\tPeptide\ty\ty_pred\n')
+outfile_resnet.write('split\tMHC\tPeptide\ty\ty_pred\tstd\n')
 outfile_total = open(file2, 'w')
 outfile_total.write('split\tMHC\tPeptide\ty\ty_pred\n')
 
