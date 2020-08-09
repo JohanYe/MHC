@@ -1,7 +1,7 @@
 # model script
 import torch
 import torch.nn as nn
-from Utils import Flatten, PrintLayerShape
+from utils import Flatten, PrintLayerShape
 
 
 class BidirectionalLSTM(nn.Module):
@@ -17,6 +17,7 @@ class BidirectionalLSTM(nn.Module):
     def forward(self, x):
         out = self.layers(x)
         return out
+
 
 class ResidualBlock(nn.Module):
     # Consider addring gated resnet block instead
@@ -76,13 +77,13 @@ class ResidualNetwork(nn.Module):
         self.seq_len = seq_len
         self.n_Linear = n_Linear
         self.rezero = rezero
-        self.strides = [2]*n_layers if n_layers <= 5 else [2] * 2 + [1]*(n_layers-5) + [2]*3
+        self.strides = [2] * n_layers if n_layers <= 5 else [2] * 2 + [1] * (n_layers - 5) + [2] * 3
         # idk why this is round and not int/floor as usual
         self.ResidualOutDim = max(round((49 / (2 ** n_layers))), 2) if n_layers <= 5 else \
             max(round((49 / (2 ** n_layers // 2))), 2)
 
         self.Residual_initial_MHC = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1),  nn.BatchNorm1d(filters), nn.ReLU()
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
         )  # Note bias is false in paper code
         self.Residual_initial_Peptide = nn.Sequential(
             nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU())
@@ -92,17 +93,17 @@ class ResidualNetwork(nn.Module):
                                 dropout=0.1,
                                 nonlin=nn.LeakyReLU(),
                                 stride=self.strides[i],
-                                rezero=rezero) for i in range(n_layers-1)]
-        layers.append(ResidualBlock(filters, filters//2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
+                                rezero=rezero) for i in range(n_layers - 1)]
+        layers.append(ResidualBlock(filters, filters // 2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_out')  # , nonlinearity='leaky_relu')
             elif isinstance(m, nn.BatchNorm1d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
         self.layers = nn.Sequential(*layers)
-        self.fc = nn.Linear(int(filters//2 * self.ResidualOutDim), n_Linear)
+        self.fc = nn.Linear(int(filters // 2 * self.ResidualOutDim), n_Linear)
         self.mu = nn.Linear(n_Linear, 1)
         self.std = nn.Linear(n_Linear, 1)
 
@@ -126,8 +127,10 @@ class ResidualNetwork(nn.Module):
 
 
 class Frozen_resnet(nn.Module):
-    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15, lstm_layers=3):
+    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15, lstm_layers=3,
+                 full_lstm=False):
         super(Frozen_resnet, self).__init__()
+        self.full_lstm = full_lstm
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lstm_hidden = lstm_hidden
         self.init_hidden = init_hidden
@@ -136,27 +139,34 @@ class Frozen_resnet(nn.Module):
         self.final_linear_dim = 1024
         self.lstm_layers = lstm_layers
 
-
         # Linear Init
-        self.MHC_init = nn.Sequential(nn.Linear(MHC_len, init_hidden), nn.ReLU())
-        self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
+        if full_lstm:
+            self.MHC_init = BidirectionalLSTM(MHC_len, hidden_shape=init_hidden//2, n_layers=2)
+            self.pep_init = BidirectionalLSTM(Pep_len, hidden_shape=init_hidden//2, n_layers=2)
+        else:
+            self.MHC_init = nn.Sequential(nn.Linear(MHC_len, init_hidden), nn.ReLU())
+            self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
 
         # LSTM
-        self.LSTM = BidirectionalLSTM(init_hidden*2, hidden_shape=lstm_hidden, n_layers=lstm_layers)
+        self.LSTM = BidirectionalLSTM(init_hidden * 2, hidden_shape=lstm_hidden, n_layers=lstm_layers)
         self.LSTM_linear = nn.Sequential(
             Flatten(),
-            nn.Linear(2*lstm_hidden*40, lstm_linear),
+            nn.Linear(2 * lstm_hidden * 40, lstm_linear),
             nn.BatchNorm1d(lstm_linear),
-            nn.ReLU(),)
+            nn.ReLU(), )
 
-        self.final_linear = nn.Linear(lstm_linear+2, 1)
+        self.final_linear = nn.Linear(lstm_linear + 2, 1)
 
     def Input_To_LSTM(self, x):
         x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
 
         # Peptide
-        x_peptide = self.pep_init(x_peptide)
-        x_MHC = self.MHC_init(x_MHC)
+        if self.full_lstm:
+            x_peptide = self.pep_init(x_peptide)[0]
+            x_MHC = self.MHC_init(x_MHC)[0]
+        else:
+            x_peptide = self.pep_init(x_peptide)
+            x_MHC = self.MHC_init(x_MHC)
 
         x = torch.cat((x_peptide, x_MHC), dim=2)
         x = self.LSTM(x)[0]
@@ -171,7 +181,7 @@ class Frozen_resnet(nn.Module):
         Res_mu = Res_mu.detach().to(self.device)
         Res_std = Res_std.detach().to(self.device)
 
-        #shape stuff
+        # shape stuff
         x = x.view(x.shape[0], -1)
         x = torch.cat((x, Res_mu, Res_std), dim=1)
         x = torch.sigmoid(self.final_linear(x))
@@ -180,7 +190,7 @@ class Frozen_resnet(nn.Module):
 
 
 class Resnet_Blosum_direct(nn.Module):
-    def __init__(self, filters=256, n_Linear=512, block_type=None):
+    def __init__(self, filters=256, n_Linear=512, block_type=None, stride=[2, 1, 1, 1, 2]):
         super(Resnet_Blosum_direct, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.final_linear_dim = n_Linear
@@ -197,11 +207,11 @@ class Resnet_Blosum_direct(nn.Module):
                                 block_type=block_type,
                                 dropout=0.1,
                                 nonlin=nn.LeakyReLU(),
-                                stride=2) for i in range(2)]
+                                stride=stride[i]) for i in range(5)]
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_out')  # , nonlinearity='leaky_relu')
             elif isinstance(m, nn.BatchNorm1d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -210,7 +220,7 @@ class Resnet_Blosum_direct(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(6400, 512),
             nn.BatchNorm1d(512),
-            nn.ReLU(),
+            nn.LeakyReLU(),
         )
         self.final_linear = nn.Linear(514, 1)
 
@@ -230,31 +240,11 @@ class Resnet_Blosum_direct(nn.Module):
 
         # shape stuff
         out = out.view(x.shape[0], -1)
-        print(out.shape)
         out = self.fc(out)
         out = torch.cat((out, Res_mu, Res_std), dim=1)
-        print(out.shape)
         out = torch.sigmoid(self.final_linear(out))
 
         return out
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class DeepLigand(nn.Module):
@@ -271,12 +261,11 @@ class DeepLigand(nn.Module):
         self.n_layers = n_layers
         self.block_type = block_type
 
-
         # LSTM
-        self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=3)
+        self.ELMo = BidirectionalLSTM(seq_len, hidden_shape=lstm_hidden, n_layers=n_layers)
         self.ELMo_Linear = nn.Sequential(
             Flatten(),
-            nn.Linear(2*lstm_hidden*40, lstm_linear),
+            nn.Linear(2 * lstm_hidden * 40, lstm_linear),
             nn.BatchNorm1d(lstm_linear),
             nn.ReLU(),
         )
@@ -289,25 +278,14 @@ class DeepLigand(nn.Module):
         )
 
     def forward(self, x):
-
         # LSTM
         x_lstm = x.view(x.shape[0], -1, self.seq_len)
         out2 = self.ELMo(x)[0]
         out2 = self.ELMo_Linear(out2)
 
         # Network together
-        #out = torch.cat((out1, out2), dim=1)
-        #out = self.final_linear(out)
+        # out = torch.cat((out1, out2), dim=1)
+        # out = self.final_linear(out)
         # out = torch.sigmoid(out)
 
         return out2
-
-
-
-
-
-
-
-
-
-

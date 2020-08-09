@@ -3,7 +3,7 @@
 # Spring 2020
 
 import os
-from Utils import *
+from utils import *
 from model import *
 import time
 import torch.optim as optim
@@ -27,6 +27,7 @@ parser.add_argument('--n_reslayers', type=int, default=5)
 parser.add_argument('--lstm_nhidden', type=int, default=64)
 parser.add_argument('--lstm_nlayers', type=int, default=2)
 parser.add_argument('--rezero', type=bool, default=False)
+parser.add_argument('--full_lstm', type=bool, default=False)
 args = parser.parse_args()
 
 
@@ -39,6 +40,7 @@ MHC = pd.read_csv(os.getcwd() + '/MHC_I/' + 'MHC_pseudo.dat', header=None, sep='
 MHC_len = MHC[1].map(len).max()
 MHC_dict = MHC.set_index(0).to_dict()[1]
 All_data = {0, 1, 2, 3, 4}
+np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(args.seed)
@@ -143,7 +145,8 @@ for test_set in range(5):
             if args.fucking_raw:
                 net2 = Resnet_Blosum_direct(block_type=args.block_type).to(device)
             else:
-                net2 = Frozen_resnet(lstm_hidden=args.lstm_nhidden, lstm_layers=args.lstm_nlayers).to(device)
+                net2 = Frozen_resnet(lstm_hidden=args.lstm_nhidden, lstm_layers=args.lstm_nlayers,
+                                     full_lstm=args.full_lstm).to(device)
             optimizer = optim.Adam(net2.parameters(), lr=lr)
 
             for epoch in range(1, n_epoch + 1):
