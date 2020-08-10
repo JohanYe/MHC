@@ -141,14 +141,17 @@ class Frozen_resnet(nn.Module):
 
         # Linear Init
         if full_lstm:
-            self.MHC_init = BidirectionalLSTM(MHC_len, hidden_shape=init_hidden//2, n_layers=2)
-            self.pep_init = BidirectionalLSTM(Pep_len, hidden_shape=init_hidden//2, n_layers=2)
+            self.MHC_init = BidirectionalLSTM(MHC_len, hidden_shape=init_hidden, n_layers=2)
+            self.pep_init = BidirectionalLSTM(Pep_len, hidden_shape=init_hidden, n_layers=2)
         else:
             self.MHC_init = nn.Sequential(nn.Linear(MHC_len, init_hidden), nn.ReLU())
             self.pep_init = nn.Sequential(nn.Linear(Pep_len, init_hidden), nn.ReLU())
 
         # LSTM
-        self.LSTM = BidirectionalLSTM(init_hidden * 2, hidden_shape=lstm_hidden, n_layers=lstm_layers)
+        if full_lstm:
+            self.LSTM = BidirectionalLSTM(init_hidden * 4, hidden_shape=lstm_hidden, n_layers=lstm_layers)
+        else:
+            self.LSTM = BidirectionalLSTM(init_hidden * 2, hidden_shape=lstm_hidden, n_layers=lstm_layers)
         self.LSTM_linear = nn.Sequential(
             Flatten(),
             nn.Linear(2 * lstm_hidden * 40, lstm_linear),
