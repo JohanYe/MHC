@@ -19,7 +19,7 @@ parser.add_argument('--n_epochs', type=int, default=200)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--lr', type=float, default=2e-4)
 parser.add_argument('--patience', type=int, default=20)
-parser.add_argument('--lstm', type=bool, default=True)
+parser.add_argument('--lstm', type=int, default=1)
 parser.add_argument('--fucking_raw', type=bool, default=False)
 parser.add_argument('--gauss', action='store_true')
 parser.add_argument('--block_type', type=str, default='cabd')
@@ -28,9 +28,11 @@ parser.add_argument('--lstm_nhidden', type=int, default=64)
 parser.add_argument('--lstm_nlayers', type=int, default=2)
 parser.add_argument('--rezero', type=bool, default=False)
 parser.add_argument('--full_lstm', type=bool, default=False)
+parser.add_argument('--vae', type=bool, default=False)
 args = parser.parse_args()
 
-
+# lazy workaround
+args.lstm = True if args.lstm == 1 else False
 
 BA_EL = args.data  # Expects BA or EL
 
@@ -92,49 +94,29 @@ for test_set in range(5):
         val_loader = torch.utils.data.DataLoader(
             MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
 
+        if args.vae:
+            VAE = VariationalAutoencoder().to(device)
+            VAE_optimizer = optim.Adam(VAE.parameters(), lr=lr/10)
+            model, optimizer = VAE.train_model(model=VAE,
+                                         train_loader=train_loader,
+                                         validation_loader=val_loader,
+                                         optimizer=VAE_optimizer,
+                                         save_dir=save_dir,
+                                         crossvalsplit=k,
+                                         n_epoch=10)
+
         net = ResidualNetwork(block_type=args.block_type, n_layers=args.n_reslayers, rezero=args.rezero).to(device)
         optimizer = optim.Adam(net.parameters(), lr=lr)
 
-        for epoch in range(1, n_epoch):
-            train_batch_loss = []
-            for X, y in tqdm(train_loader):
-                net.train()
-                X = X.permute(0, 2, 1).float()
-                mu, std = net(X.to(device))
-                loss = criterion(y.to(device).float(), mu, std, normal_dist=args.gauss)
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                train_batch_loss.append(loss.item())
-
-            val_batch_loss, test_batch_loss = [], []
-            for X, y in tqdm(val_loader):
-                X = X.permute(0, 2, 1).float()
-                with torch.no_grad():
-                    net.eval()
-                    mu, std = net(X.to(device))
-                    loss = criterion(y.to(device).float(), mu, std, normal_dist=False)
-                    val_batch_loss.append(loss.item())
-
-            train_epoch_loss.append(np.mean(train_batch_loss))
-            val_epoch_loss.append(np.mean(val_batch_loss))
-
-            print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
-                k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
-
-            if np.mean(val_batch_loss) < best_val_MSE:
-                best_epoch = epoch
-                best_val_MSE = np.mean(val_batch_loss)
-                save_checkpoint({'epoch': best_epoch, 'state_dict': net.state_dict()},
-                                save_dir,
-                                ckpt_name='best' + str(k) + '_resnet.pth.tar')
-
-            if epoch - best_epoch > patience:  # Early stopping
-                break
-
-        load_checkpoint(save_dir + 'best' + str(k) + '_resnet.pth.tar', net)
+        net, optimizer = train_epochs(args=args,
+                                      model=net,
+                                      loss_function=criterion,
+                                      train_loader=train_loader,
+                                      validation_loader=val_loader,
+                                      optimizer=optimizer,
+                                      save_dir=save_dir,
+                                      model_name='resnet',
+                                      crossvalsplit=k)
 
         performance_testing_print(
             data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile_resnet)
@@ -147,54 +129,20 @@ for test_set in range(5):
             else:
                 net2 = Frozen_resnet(lstm_hidden=args.lstm_nhidden, lstm_layers=args.lstm_nlayers,
                                      full_lstm=args.full_lstm).to(device)
-            optimizer = optim.Adam(net2.parameters(), lr=lr)
+            optimizer2 = optim.Adam(net2.parameters(), lr=lr)
 
-            for epoch in range(1, n_epoch + 1):
-                train_batch_loss = []
-                for X, y in tqdm(train_loader):
-                    net.eval()
-                    net2.train()
-                    X = X.permute(0, 2, 1).float().to(device)
-                    with torch.no_grad():
-                        res_out = net(X)
-                    y_pred = net2(X, res_out)  # detach because i'm paranoid about gradients
-                    loss = nn.functional.mse_loss(y_pred, y.to(device).float())  # , normal_dist=False)
+            net2, optimizer2 = train_epochs(args=args,
+                                            model=net2,
+                                            loss_function=criterion,
+                                            train_loader=train_loader,
+                                            validation_loader=val_loader,
+                                            optimizer=optimizer,
+                                            save_dir=save_dir,
+                                            model_name='total',
+                                            crossvalsplit=k,
+                                            trained_model=net
+                                            )
 
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                    train_batch_loss.append(loss.item())
-
-                val_batch_loss, test_batch_loss = [], []
-
-                for X, y in tqdm(val_loader):
-                    X = X.permute(0, 2, 1).float().to(device)
-                    with torch.no_grad():
-                        net.eval()
-                        net2.eval()
-                        res_out = net(X)
-                        y_pred = net2(X, res_out)
-                        loss = nn.functional.mse_loss(y_pred, y.to(device).float())
-                        val_batch_loss.append(loss.item())
-
-                train_epoch_loss.append(np.mean(train_batch_loss))
-                val_epoch_loss.append(np.mean(val_batch_loss))
-
-                print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
-                    k, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
-
-                if np.mean(val_batch_loss) < best_val_MSE:
-                    best_epoch = epoch
-                    best_val_MSE = np.mean(val_batch_loss)
-                    save_checkpoint({'epoch': best_epoch, 'state_dict': net2.state_dict()},
-                                    save_dir,
-                                    ckpt_name='best' + str(k) + '_total.pth.tar')
-
-                if epoch - best_epoch > patience:  # Early stopping
-                    break
-
-            load_checkpoint(save_dir + 'best' + str(k) + '_total.pth.tar', net2)
             performance_testing_print(
                 data_path, test_set, BA_EL, MHC_dict,
                 batch_size, MHC_len, Peptide_len, net, k, outfile_total,

@@ -2,6 +2,10 @@
 import torch
 import torch.nn as nn
 from utils import Flatten, PrintLayerShape
+from torch.nn import functional as F
+from tqdm import tqdm
+import numpy as np
+import utils
 
 
 class BidirectionalLSTM(nn.Module):
@@ -92,6 +96,7 @@ class ResidualNetwork(nn.Module):
                                 block_type=block_type,
                                 dropout=0.1,
                                 nonlin=nn.LeakyReLU(),
+                                kernel_size=5,
                                 stride=self.strides[i],
                                 rezero=rezero) for i in range(n_layers - 1)]
         layers.append(ResidualBlock(filters, filters // 2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))
@@ -127,7 +132,7 @@ class ResidualNetwork(nn.Module):
 
 
 class Frozen_resnet(nn.Module):
-    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15, lstm_layers=3,
+    def __init__(self, lstm_hidden=64, init_hidden=50, lstm_linear=256, MHC_len=34, Pep_len=15, lstm_layers=2,
                  full_lstm=False):
         super(Frozen_resnet, self).__init__()
         self.full_lstm = full_lstm
@@ -200,10 +205,10 @@ class Resnet_Blosum_direct(nn.Module):
         self.ResidualOutDim = 6402
 
         self.Residual_initial_MHC = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=2, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
         )  # Note bias is false in paper code
         self.Residual_initial_Peptide = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=2, padding=1), nn.BatchNorm1d(filters), nn.ReLU())
+            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU())
 
         layers = [ResidualBlock(filters,
                                 filters,
@@ -292,3 +297,126 @@ class DeepLigand(nn.Module):
         # out = torch.sigmoid(out)
 
         return out2
+
+
+class VariationalAutoencoder(nn.Module):
+    """ Apparently we assume bernoulli output distribution """
+
+    def __init__(self, c_in=40, n_filters=256, n_latent=256):
+        super(VariationalAutoencoder, self).__init__()
+
+        self.n_latent = n_latent
+        self.c_in = 33
+        self.n_filters = n_filters
+        self.flattened_size = (49 // 2 ** 5) * n_filters
+        self.Residual_initial_MHC = nn.Sequential(
+            nn.Conv1d(c_in, n_filters, kernel_size=5, stride=1, padding=2), nn.BatchNorm1d(n_filters), nn.ReLU()
+        )  # Note bias is false in paper code
+        self.Residual_initial_Peptide = nn.Sequential(
+            nn.Conv1d(c_in, n_filters, kernel_size=5, stride=1, padding=2), nn.BatchNorm1d(n_filters), nn.ReLU())
+
+        self.Deterministic_Encoder = nn.Sequential(
+            ResidualBlock(n_filters, n_filters, kernel_size=7, dropout=0.1, block_type='cabd'),
+            ResidualBlock(n_filters, n_filters, kernel_size=7, dropout=0.1, block_type='cabd'),
+            ResidualBlock(n_filters, n_filters // 2, kernel_size=7, dropout=0.1, block_type='cabd'),
+            utils.Flatten(),
+            nn.Linear(896, 512),
+            nn.LeakyReLU(),
+        )
+
+        self.mu = nn.Linear(512, n_latent)
+        self.lv = nn.Linear(512, n_latent)
+
+        # Not the prettiest, will do for nwo
+        self.fc2 = nn.Sequential(
+            nn.Linear(n_latent, n_latent),
+            nn.ReLU(),
+        )
+        self.gru = nn.GRU(input_size=256, hidden_size=512, num_layers=3, batch_first=True)
+        self.fc3 = nn.Linear(512, 49)
+
+    def encode(self, x):
+        x_peptide, x_MHC = torch.split(x, [15, 34], dim=2)
+        out1 = self.Residual_initial_MHC(x_MHC)
+        out2 = self.Residual_initial_Peptide(x_peptide)
+        out = torch.cat((out1, out2), dim=2)
+
+        out = self.Deterministic_Encoder(out)
+
+        mu = self.mu(out)
+        lv = self.lv(out)
+        return mu, lv
+
+    def reparametrize(self, mu, lv):
+        std = 0.5 * lv.exp()
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)  # in place calculations are faster in pytorch
+
+    def decode(self, z):
+        z = F.selu(self.fc2(z))
+        z = z.view(z.size(0), 1, z.size(-1)).repeat(1, 60, 1)
+        out, h = self.gru(z)
+        out_layershape = out.contiguous().view(-1, out.size(-1))
+        y0 = self.fc3(out_layershape)
+        y = y0.contiguous().view(out.size(0), -1, y0.size(-1))
+        return y
+
+    def forward(self, x):
+
+        mu, lv = self.encode(x)
+        z = self.reparametrize(mu, lv)
+
+        return self.decode(z)
+
+    def loss_function(self, x):
+        mu, lv = self.encode(x)
+        q = torch.distributions.Normal(loc=mu, scale=lv.mul_(0.5).exp())
+        p = torch.distributions.Normal(loc=0, scale=1)
+        KLD = torch.distributions.kl_divergence(q, p).sum() / x.shape[0]
+        x_recon = self.decode(q.rsample())
+
+        # changing values to help training
+        x_lv = F.softplus(x_recon[:, 40:, :])
+        x[:, 20:, :] = x[:, 20:, :] / 15  # largest value in BLOSUM50
+
+        # Binary loss
+        bernoulli_error = torch.distributions.Bernoulli(logits=x_recon[:, :20, :]).log_prob(x[:, :20, :]).sum() / x.shape[0]
+        gauss_error = torch.distributions.Normal(loc=x_recon[:, 20:40, :], scale=x_lv).log_prob(
+            x[:, 20:, :]).sum() / x.shape[0]
+
+        return -(bernoulli_error + gauss_error - KLD)
+
+    def train_model(self, model, train_loader, validation_loader, optimizer, save_dir, crossvalsplit, n_epoch=100):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
+        best_validation_MSE = np.inf
+
+        for epoch in range(1, n_epoch + 1):
+            train_batch_loss = []
+
+            for X, y in tqdm(train_loader):
+                model.train()
+                X = X.permute(0, 2, 1).float().to(device)
+                loss = model.loss_function(X)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                train_batch_loss.append(loss.item())
+
+            val_batch_loss = []
+            for X, y in tqdm(validation_loader):
+                X = X.permute(0, 2, 1).float().to(device)
+                with torch.no_grad():
+                    model.eval()
+                    loss = model.loss_function(X)
+                val_batch_loss.append(loss.item())
+
+                train_epoch_loss.append(np.mean(train_batch_loss))
+                val_epoch_loss.append(np.mean(val_batch_loss))
+
+            print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
+                crossvalsplit, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
+
+        return model, optimizer

@@ -7,6 +7,7 @@ from tqdm import tqdm
 import sys
 import datetime
 
+
 class Flatten(nn.Module):
     def forward(self, input):
         return input.reshape(input.shape[0], -1)
@@ -19,6 +20,7 @@ class PrintLayerShape(nn.Module):
     def forward(self, x):
         print(x.shape)
         return x
+
 
 one_hot = {
     'A': np.array((1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
@@ -41,64 +43,64 @@ one_hot = {
     'W': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)),
     'Y': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0)),
     'V': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)),
-    'X': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1)) #  Placeholder for no AA
+    'X': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1))  # Placeholder for no AA
 }
 
-
 #  https://github.com/gifford-lab/DeepLigand/blob/master/data/onehot_first20BLOSUM50
-onehot_Blosum50 = {'I': np.array((1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -4, -3, -4, -2, -3, -4, -4, -4, 5,
-                      2, -3, 2, 0, -3, -3, -1, -3, -1, 4)),
-       'L': np.array((0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2, -3, -4, -4, -2, -2, -3, -4, -3, 2,
-                      5, -3, 3, 1, -4, -3, -1, -2, -1, 1)),
-       'V': np.array((0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -1, -3, -3, -4, -4, 4,
-                      1, -3, 1, -1, -3, -2, 0, -3, -1, 5)),
-       'F': np.array((0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -5, -2, -4, -3, -4, -1, 0,
-                      1, -4, 0, 8, -4, -3, -2, 1, 4, -1)),
-       'M': np.array((0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -2, -2, -4, -2, 0, -2, -3, -1, 2,
-                      3, -2, 7, 0, -3, -2, -1, -1, 0, 1)),
-       'C': np.array((
-                     0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -4, -2, -4, 13, -3, -3, -3, -3, -2,
-                     -2, -3, -2, -2, -4, -1, -1, -5, -3, -1)),
-       'A': np.array((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, -2, -1, -2, -1, -1, -1, 0, -2, -1,
-                      -2, -1, -1, -3, -1, 1, 0, -3, -2, 0)),
-       'G': np.array((0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, -1, -3, -2, -3, 8, -2, -4,
-                      -4, -2, -3, -4, -2, 0, -2, -3, -3, -4)),
-       'P': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -3, -2, -1, -4, -1, -1, -2, -2, -3,
-                     -4, -1, -3, -4, 10, -1, -1, -4, -3, -3)),
-       'T': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1, -1, -1, -1, -2, -2, -1,
-                      -1, -1, -1, -2, -1, 2, 5, -3, -2, 0)),
-       'S': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 0, -1, 0, -1, 0, -1, -3, -3,
-                      0, -2, -3, -1, 5, 2, -4, -2, -2)),
-       'Y': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, -2, -1, -2, -3, -3, -1, -2, -3, 2, -1,
-                      -1, -2, 0, 4, -3, -2, -2, 2, 8, -1)),
-       'W': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -5, -5, -1, -3, -3, -3, -3,
-                     -2, -3, -1, 1, -4, -4, -3, 15, 2, -3)),
-       'Q': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1, 1, 0, 0, -3, 7, 2, -2, 1, -3, -2,
-                      2, 0, -4, -1, 0, -1, -1, -1, -3)),
-       'N': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1, -1, 7, 2, -2, 0, 0, 0, 1, -3, -4,
-                      0, -2, -4, -2, 1, 0, -4, -2, -3)),
-       'H': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -2, 0, 1, -1, -3, 1, 0, -2, 10, -4, -3,
-                     0, -1, -1, -2, -1, -2, -3, 2, -4)),
-       'E': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 2, -3, 2, 6, -3, 0, -4, -3,
-                      1, -2, -3, -1, -1, -1, -3, -2, -3)),
-       'D': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -2, -2, 2, 8, -4, 0, 2, -1, -1, -4, -4,
-                     -1, -4, -5, -1, 0, -1, -5, -3, -4)),
-       'K': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 3, 0, -1, -3, 2, 1, -2, 0, -3, -3,
-                      6, -2, -4, -1, 0, -1, -3, -2, -3)),
-       'R': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 7, -1, -2, -4, 1, 0, -3, 0, -4, -3,
-                     3, -2, -3, -3, -1, -1, -3, -1, -3)),
-       'X': np.array((0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05,
-                      0.05, 0.05, 0.05, 0.05, -1, -1, -1, -1, -2, -1, -1, -2, -1, -1, -1, -1, -1, -2, -2, -1, 0, -3, -1,
-                      -1)),
-       'J': np.array((
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5, -5, -5, -5, -5, -5, -5, -5, -5, -5,
-                     -5, -5, -5, -5, -5, -5, -5, -5, -5, -5))
-       }
+onehot_Blosum50 = {
+    'I': np.array((1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -4, -3, -4, -2, -3, -4, -4, -4, 5,
+                   2, -3, 2, 0, -3, -3, -1, -3, -1, 4)),
+    'L': np.array((0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2, -3, -4, -4, -2, -2, -3, -4, -3, 2,
+                   5, -3, 3, 1, -4, -3, -1, -2, -1, 1)),
+    'V': np.array((0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -1, -3, -3, -4, -4, 4,
+                   1, -3, 1, -1, -3, -2, 0, -3, -1, 5)),
+    'F': np.array((0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -5, -2, -4, -3, -4, -1, 0,
+                   1, -4, 0, 8, -4, -3, -2, 1, 4, -1)),
+    'M': np.array((0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -2, -2, -4, -2, 0, -2, -3, -1, 2,
+                   3, -2, 7, 0, -3, -2, -1, -1, 0, 1)),
+    'C': np.array((
+        0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -4, -2, -4, 13, -3, -3, -3, -3, -2,
+        -2, -3, -2, -2, -4, -1, -1, -5, -3, -1)),
+    'A': np.array((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, -2, -1, -2, -1, -1, -1, 0, -2, -1,
+                   -2, -1, -1, -3, -1, 1, 0, -3, -2, 0)),
+    'G': np.array((0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, -1, -3, -2, -3, 8, -2, -4,
+                   -4, -2, -3, -4, -2, 0, -2, -3, -3, -4)),
+    'P': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -3, -2, -1, -4, -1, -1, -2, -2, -3,
+        -4, -1, -3, -4, 10, -1, -1, -4, -3, -3)),
+    'T': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1, -1, -1, -1, -2, -2, -1,
+                   -1, -1, -1, -2, -1, 2, 5, -3, -2, 0)),
+    'S': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 0, -1, 0, -1, 0, -1, -3, -3,
+                   0, -2, -3, -1, 5, 2, -4, -2, -2)),
+    'Y': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, -2, -1, -2, -3, -3, -1, -2, -3, 2, -1,
+                   -1, -2, 0, 4, -3, -2, -2, 2, 8, -1)),
+    'W': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, -3, -3, -4, -5, -5, -1, -3, -3, -3, -3,
+        -2, -3, -1, 1, -4, -4, -3, 15, 2, -3)),
+    'Q': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1, 1, 0, 0, -3, 7, 2, -2, 1, -3, -2,
+                   2, 0, -4, -1, 0, -1, -1, -1, -3)),
+    'N': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1, -1, 7, 2, -2, 0, 0, 0, 1, -3, -4,
+                   0, -2, -4, -2, 1, 0, -4, -2, -3)),
+    'H': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -2, 0, 1, -1, -3, 1, 0, -2, 10, -4, -3,
+        0, -1, -1, -2, -1, -2, -3, 2, -4)),
+    'E': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 2, -3, 2, 6, -3, 0, -4, -3,
+                   1, -2, -3, -1, -1, -1, -3, -2, -3)),
+    'D': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -2, -2, 2, 8, -4, 0, 2, -1, -1, -4, -4,
+        -1, -4, -5, -1, 0, -1, -5, -3, -4)),
+    'K': np.array((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 3, 0, -1, -3, 2, 1, -2, 0, -3, -3,
+                   6, -2, -4, -1, 0, -1, -3, -2, -3)),
+    'R': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 7, -1, -2, -4, 1, 0, -3, 0, -4, -3,
+        3, -2, -3, -3, -1, -1, -3, -1, -3)),
+    'X': np.array((0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05,
+                   0.05, 0.05, 0.05, 0.05, -1, -1, -1, -1, -2, -1, -1, -2, -1, -1, -1, -1, -1, -2, -2, -1, 0, -3, -1,
+                   -1)),
+    'J': np.array((
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5, -5, -5, -5, -5, -5, -5, -5, -5, -5,
+        -5, -5, -5, -5, -5, -5, -5, -5, -5, -5))
+}
 
 
 def one_hot_encoding(list, encoding_dict, max_len):
@@ -110,12 +112,13 @@ def one_hot_encoding(list, encoding_dict, max_len):
         try:
             matrix.append(encoding_dict[i.upper()])
         except:
-            print(list,i)
+            print(list, i)
         idx += 1
     for i in range(int(max_len) - idx):
         matrix.append(encoding_dict['X'])
 
     return np.array(matrix)
+
 
 class MHC_dataset(torch.utils.data.Dataset):
     """
@@ -123,7 +126,6 @@ class MHC_dataset(torch.utils.data.Dataset):
     """
 
     def __init__(self, filepath, Partition, BA_EL, mapping_dict, MHC_len, Peptide_len=15):
-
         self.filepath = filepath
         self.partition = Partition
         self.BA_EL = BA_EL
@@ -140,7 +142,8 @@ class MHC_dataset(torch.utils.data.Dataset):
         label = self.y[idx]
         return batch, label
 
-def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
+
+def MHC_df(filepath, Partition, BA_EL, mapping_dict, Peptide_len=15):
     """ reads MHC files and creates pandas df """
 
     if type(Partition) is not list:
@@ -159,6 +162,7 @@ def MHC_df(filepath, Partition, BA_EL, mapping_dict,Peptide_len=15):
 
     return X
 
+
 def df_ToTensor(df, MHC_len, Peptide_len):
     """ Turns input pandas df into tensors """
 
@@ -174,86 +178,6 @@ def df_ToTensor(df, MHC_len, Peptide_len):
     return X, y
 
 
-def TxtToArray(data_path, Partition, BA_EL, mapping_dict):
-
-    if type(Partition) is not list:
-        Partition = [Partition]
-    Peptide_len = 15  # Is there a better way to do this?
-    MHC_len = len(max(list(mapping_dict.keys()), key=len))
-    Peptides = []
-    MHC = []
-
-    for file in Partition:
-        filepath = data_path + 'c00' + str(file) + "_" + BA_EL.lower()
-
-        infile = open(filepath, 'r')
-        for line in infile:
-            line = line.strip().split()
-
-            # Peptide
-            sequence, idx = [], 0
-            for AA in line[0]:
-                sequence.append(onehot_Blosum50[AA.upper()])
-                idx += 1
-            for i in range(int(Peptide_len) - idx):
-                sequence.append(onehot_Blosum50['X'])
-            Peptides.append(np.array(sequence))
-
-            # MHC
-            sequence, idx = [], 0
-            for AA in mapping_dict[line[2]]:
-                sequence.append(onehot_Blosum50[AA.upper()])
-                idx += 1
-            for i in range(int(MHC_len) - idx):
-                sequence.append(onehot_Blosum50['X'])
-            MHC.append(np.array(sequence))
-
-    Peptides = torch.from_numpy(np.array(Peptides))
-    MHC = torch.from_numpy(np.array(MHC))
-    print('{} are loaded'.format(Partition))
-    return Peptides, MHC
-
-def TxtToTensor(data_path, Partition, BA_EL, mapping_dict):
-
-    if type(Partition) is not list:
-        Partition = [Partition]
-    Peptide_len = 15  # Is there a better way to do this?
-    MHC_len = len(max(list(mapping_dict.keys()), key=len))
-    Peptides = []
-    MHC = []
-
-    for file in Partition:
-        filepath = data_path + 'c00' + str(file) + "_" + BA_EL.lower()
-
-        infile = open(filepath, 'r')
-        for line in infile:
-            line = line.strip().split()
-
-            # Peptide
-            sequence, idx = [], 0
-            for AA in line[0]:
-                sequence.append(torch.from_numpy(onehot_Blosum50[AA.upper()]))
-                idx += 1
-            for i in range(int(Peptide_len) - idx):
-                sequence.append(torch.from_numpy(onehot_Blosum50['X']))
-            print(sequence)
-            Peptides.append(torch.Tensor(sequence))
-
-            # MHC
-            sequence, idx = [], 0
-            for AA in mapping_dict[line[2]]:
-                sequence.append(torch.from_numpy(onehot_Blosum50[AA.upper()]))
-                idx += 1
-            for i in range(int(MHC_len) - idx):
-                sequence.append(torch.from_numpy(onehot_Blosum50['X']))
-            MHC.append(torch.Tensor((sequence)))
-
-    X_train = torch.Tensor(Peptides.shape[0], 49, 40)
-    Peptides = torch.Tensor(Peptides)
-    MHC = torch.Tensor(MHC)
-    X_train = torch.cat((Peptides, MHC),dim=1,out=X_train)
-    print('{} are loaded'.format(Partition))
-    return X_train, _
 
 def save_checkpoint(state, save_dir, ckpt_name='best.pth.tar'):
     file_path = os.path.join(save_dir, ckpt_name)
@@ -262,6 +186,7 @@ def save_checkpoint(state, save_dir, ckpt_name='best.pth.tar'):
         os.mkdir(save_dir)
 
     torch.save(state, file_path)
+
 
 def load_checkpoint(checkpoint, model):
     if not os.path.exists(checkpoint):
@@ -272,8 +197,10 @@ def load_checkpoint(checkpoint, model):
     new_dict.update(saved_dict)
     model.load_state_dict(new_dict)
 
+
 def print_stdout(a_string):
     sys.stdout.write("{}\n".format(a_string))
+
 
 def make_dir(directory_path):
     if not os.path.exists(directory_path):
@@ -281,6 +208,7 @@ def make_dir(directory_path):
         print_stdout("Directory {} created.".format(directory_path))
     else:
         print_stdout("Directory {} already exists.".format(directory_path))
+
 
 def generate_experiment_folders(root_folder, argument_parser):
     exp_path = str(root_folder) + "/" + datetime.date.today().strftime("%Y%m%d")
@@ -292,6 +220,8 @@ def generate_experiment_folders(root_folder, argument_parser):
     exp_path += '-{}_bt'.format(argument_parser.block_type)
     if argument_parser.fucking_raw:
         exp_path += '-raw'
+    elif argument_parser.vae:
+        exp_path += '-VAE'
     elif argument_parser.lstm:
         exp_path += '-{}_nh-{}_ly_lstm'.format(argument_parser.lstm_nhidden, argument_parser.lstm_nlayers)
     if argument_parser.rezero:
@@ -307,11 +237,8 @@ def generate_experiment_folders(root_folder, argument_parser):
     return exp_path, save_dir, figure_dir
 
 
-
-
-
 def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, MHC_len, Peptide_len, net, k, outfile,
-                              net2=None,resnet=False):
+                              net2=None, resnet=False):
     # LOOP IN ORDER TO MEASURE PERFORMANCE IN THE END.
     # Test loop is funny due to having to save MHC Allele
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -341,3 +268,67 @@ def performance_testing_print(data_path, test_set, BA_EL, MHC_dict, batch_size, 
             else:
                 print(k, MHC, Peptide, y[j].item(), mu[j].item(), std[j].item(), sep='\t', file=outfile)
 
+
+def train_epochs(args, model, loss_function, train_loader, validation_loader, optimizer, save_dir, crossvalsplit,
+                 model_name, trained_model=None):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    train_epoch_loss, val_epoch_loss, test_epoch_loss = [], [], []
+    train_batch_loss = []
+    best_validation_MSE = np.inf
+
+    for epoch in range(1, args.n_epochs + 1):
+        for X, y in tqdm(train_loader):
+            model.train()
+            X = X.permute(0, 2, 1).float().to(device)
+
+            if trained_model is None:
+                mu, std = model(X)
+                loss = loss_function(y.to(device).float(), mu, std, normal_dist=args.gauss)
+
+            else:
+                trained_model.eval()
+                with torch.no_grad():
+                    res_out = trained_model(X)
+                y_pred = model(X, res_out)
+                loss = nn.functional.mse_loss(y_pred, y.to(device).float())
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            train_batch_loss.append(loss.item())
+
+        val_batch_loss, test_batch_loss = [], []
+        for X, y in tqdm(validation_loader):
+            X = X.permute(0, 2, 1).float().to(device)
+            with torch.no_grad():
+                model.eval()
+                if trained_model is None:
+                    mu, std = model(X.to(device))
+                    loss = loss_function(y.to(device).float(), mu, std, normal_dist=False)
+                else:
+                    trained_model.eval()
+                    res_out = trained_model(X)
+                    y_pred = model(X, res_out)
+                    loss = nn.functional.mse_loss(y_pred, y.to(device).float())
+                val_batch_loss.append(loss.item())
+
+        train_epoch_loss.append(np.mean(train_batch_loss))
+        val_epoch_loss.append(np.mean(val_batch_loss))
+
+        print('Validation Split: [{}/20], Epoch: {}, Training Loss: {}, Validation Loss {}'.format(
+            crossvalsplit, epoch, train_epoch_loss[-1], val_epoch_loss[-1]))
+
+        if np.mean(val_batch_loss) < best_validation_MSE:
+            best_epoch = epoch
+            best_validation_MSE = np.mean(val_batch_loss)
+            save_checkpoint({'epoch': best_epoch, 'state_dict': model.state_dict()},
+                            save_dir,
+                            ckpt_name='best' + str(crossvalsplit) + '_' + model_name + '.pth.tar')
+
+        if epoch - best_epoch > args.patience:  # Early stopping
+            break
+
+    load_checkpoint(save_dir + 'best' + str(crossvalsplit) + '_' + model_name + '.pth.tar', model)
+
+    return model, optimizer
