@@ -75,7 +75,6 @@ def criterion(y, mu, std=None, normal_dist=True):
         loss = nn.functional.mse_loss(mu, y)
     return loss.mean()
 
-
 for test_set in range(5):
     test_loader = torch.utils.data.DataLoader(MHC_dataset(data_path, test_set, BA_EL, MHC_dict, MHC_len),
                                               batch_size=batch_size, shuffle=True, num_worker=8, pin_memory=True)
