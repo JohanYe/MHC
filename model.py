@@ -33,7 +33,7 @@ class ResidualBlock(nn.Module):
     # For example, bacd (batchnorm, activation, conv, dropout).
     # TODO: ADDTT uses different number of filters in inner, should we consider that? I've only allowed same currently.
 
-    def __init__(self, c_in, c_out, nonlin=nn.ReLU(), kernel_size=3, block_type=None, dropout=None, stride=2,
+    def __init__(self, c_in, c_out, nonlin=nn.ReLU(), kernel_size=7, block_type=None, dropout=None, stride=2,
                  rezero=False):
         super(ResidualBlock, self).__init__()
 
@@ -87,16 +87,16 @@ class ResidualNetwork(nn.Module):
             max(round((49 / (2 ** n_layers // 2))), 2)
 
         self.Residual_initial_MHC = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU()
+            nn.Conv1d(40, filters, kernel_size=7, stride=1, padding=3), nn.BatchNorm1d(filters), nn.ReLU()
         )  # Note bias is false in paper code
         self.Residual_initial_Peptide = nn.Sequential(
-            nn.Conv1d(40, filters, kernel_size=3, stride=1, padding=1), nn.BatchNorm1d(filters), nn.ReLU())
+            nn.Conv1d(40, filters, kernel_size=7, stride=1, padding=3), nn.BatchNorm1d(filters), nn.ReLU())
         layers = [ResidualBlock(filters,
                                 filters,
                                 block_type=block_type,
                                 dropout=0.1,
                                 nonlin=nn.LeakyReLU(),
-                                kernel_size=5,
+                                kernel_size=7,
                                 stride=self.strides[i],
                                 rezero=rezero) for i in range(n_layers - 1)]
         layers.append(ResidualBlock(filters, filters // 2, block_type=block_type, dropout=0.1, nonlin=nn.LeakyReLU()))

@@ -48,6 +48,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(args.seed)
 
 # Hyperparams:
+torch.backends.cudnn.benchmark= True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Peptide_len = 15
 n_epoch = args.n_epochs
@@ -76,8 +77,8 @@ def criterion(y, mu, std=None, normal_dist=True):
 
 
 for test_set in range(5):
-    test_loader = torch.utils.data.DataLoader(
-        MHC_dataset(data_path, test_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(MHC_dataset(data_path, test_set, BA_EL, MHC_dict, MHC_len),
+                                              batch_size=batch_size, shuffle=True, num_worker=8, pin_memory=True)
 
     for validation_set in range(5):
 
@@ -89,10 +90,10 @@ for test_set in range(5):
 
         # data loading: [N, Concat_length, Amino acids]
         train_set = list(All_data - set([test_set, validation_set]))
-        train_loader = torch.utils.data.DataLoader(
-            MHC_dataset(data_path, train_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
-        val_loader = torch.utils.data.DataLoader(
-            MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len), batch_size=batch_size, shuffle=True)
+        train_loader = torch.utils.data.DataLoader(MHC_dataset(data_path, train_set, BA_EL, MHC_dict, MHC_len),
+                                                   batch_size=batch_size, shuffle=True, num_worker=8, pin_memory=True)
+        val_loader = torch.utils.data.DataLoader(MHC_dataset(data_path, validation_set, BA_EL, MHC_dict, MHC_len),
+                                                 batch_size=batch_size, shuffle=True, num_worker=8, pin_memory=True)
 
         if args.vae:
             VAE = VariationalAutoencoder().to(device)
