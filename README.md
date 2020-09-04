@@ -23,8 +23,8 @@ The Residual Network primarily outperforms [NetMHCPan 3.0](https://genomemedicin
 ## Requirements
 
 ```bash
-conda create -n ovis python=3.7
-conda activate ovis
+conda create -n MHC_experiments python=3.7
+conda activate MHC_experiments
 # use the instructions from https://pytorch.org/
 conda install pytorch=1.5.1 torchvision cudatoolkit=10.2 -c pytorch 
 pip install -r requirements.txt
