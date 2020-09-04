@@ -29,7 +29,6 @@ conda activate MHC_experiments
 conda install pytorch=1.5.1 torchvision cudatoolkit=10.2 -c pytorch 
 pip install -r requirements.txt
 mkdir ./experiments/
-# [Optional] Install Latex (used for the figures)
 ```
 
 ## Train
