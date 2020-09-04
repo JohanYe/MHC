@@ -2,7 +2,7 @@
 Special course with Morten Nielsen
 
 Experiments are based on [DeepLigand](https://arxiv.org/abs/1703.10593).
-Extensive experiments were performed as to residual network structure and LSTM structure. Other conclusions are drawn of minor and more superficial experiments. <b> Note: </b> All experiments were conducted on binding affinity data only due to computational power available. <br>
+Extensive experiments were performed as to residual network structure and LSTM structure. Other conclusions are drawn of minor and more superficial experiments. <b> Note: </b> All experiments were conducted on binding affinity data only due to limited computational power available. <br>
 <b> Conclusions drawn </b>:
 * 5-layer residual network of 'cabd' structure performs the best
 * Evaluating residual network outputs in a Gaussian distribution hurts overall performance. 
