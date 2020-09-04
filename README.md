@@ -2,7 +2,7 @@
 Special course with Morten Nielsen
 
 Experiments are based on [DeepLigand](https://arxiv.org/abs/1703.10593).
-Extensive experiments were performed as to residual network structure and LSTM structure. Other conclusions are drawn of minor and more superficial experiments. <br>
+Extensive experiments were performed as to residual network structure and LSTM structure. Other conclusions are drawn of minor and more superficial experiments. <b> Note: </b> All experiments were conducted on binding affinity data only due to computational power available. <br>
 <b> Conclusions drawn </b>:
 * 5-layer residual network of 'cabd' structure performs the best
 * Evaluating residual network outputs in a Gaussian distribution hurts overall performance. 
@@ -16,8 +16,9 @@ Model | AUC | PCC
 --- | --- | ---
 Residual Network | 0.927 | 0.803
 Ensemble of Residual Network | 0.931 | 0.812
+NetMHCPan 3.0 | 0.933 | 0.799
 
-With the ensembl network outperforming [NetMHCPan 3.0](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-016-0288-x)
+The Residual Network primarily outperforms [NetMHCPan 3.0](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-016-0288-x) on outlier alleles, while the ensembl network fairly consistently outperforms [NetMHCPan 3.0](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-016-0288-x).
 
 ## Requirements
 
