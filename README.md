@@ -12,11 +12,11 @@ Extensive experiments were performed as to residual network structure and LSTM s
 
 ### Best model results
 
-Model | AUC | PCC
+Model | PCC | AUC
 --- | --- | ---
-Residual Network | 0.927 | 0.803
-Ensemble of Residual Network | 0.931 | 0.812
-NetMHCPan 3.0 | 0.933 | 0.799
+Residual Network | 0.803 |0.927 |
+Ensemble of Residual Network | 0.812 | 0.931 |
+NetMHCPan 3.0 | 0.799 | 0.933 | 
 
 The Residual Network primarily outperforms [NetMHCPan 3.0](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-016-0288-x) on outlier alleles, while the ensembl network fairly consistently outperforms [NetMHCPan 3.0](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-016-0288-x).
 
